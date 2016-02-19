@@ -58,7 +58,7 @@ def data_block_reader(stream, block_size):
 
 
 #@profile
-def crunch(stream, sample_rate, chip_rate, plot=False):
+def crunch(stream, sample_rate, template, plot=False):
     def plot_signal(s, t0=0, imag=False, title="", **kwargs):
         t = t0 + np.arange(len(s)) / sample_rate
         plt.plot(t, s.real, t, s.imag, **kwargs)
@@ -67,29 +67,21 @@ def crunch(stream, sample_rate, chip_rate, plot=False):
             plt.title(title)
 
     plot2 = False
+    # plot = "plot.png"
 
-    sps = sample_rate / chip_rate
-    N_code = int(sps * len(code))
+    N_code = len(template)
     # block_size = N_code # TODO: this should be a power of two / block_size = N
     block_size = 1<<(int(np.ceil(np.log2(N_code))))
     N = block_size
     N2 = 2 * N # = len(D)
 
+    c = np.concatenate([template, np.zeros(N2 - N_code)])
+    C = np.fft.fft(c)
+
     dt = N / sample_rate
     print "Blocks: size=%d; dt=%.2f ms" % (block_size, dt*1000)
 
-    # # Graphing
 
-    # Prepare code: resample, get FFT
-    # TODO: anti-aliasing filter
-    code_indices = np.arange(N_code) * len(code) / N_code
-    c = code[code_indices]
-    c = np.concatenate([c*2-1, np.zeros(N2 - N_code)])
-    C = np.fft.fft(c)
-
-    # plot_signal(c)
-    print "Code: {} symbols @ {:.6f} MHz = {:.3f} ms ; {} samples @ {:.6f} Msps".format(
-            len(code), chip_rate/1e6, len(code)/chip_rate*1e3, N_code, sample_rate/1e6)
 
     prev_means = deque([10], 10)
     prev_dc_bias = deque([5], 10)
@@ -112,7 +104,7 @@ def crunch(stream, sample_rate, chip_rate, plot=False):
         D_mag = np.abs(D)
 
         # w = window for carrier detection
-        w_hz = 20e3
+        w_hz = 40e3
         w_n = int(w_hz / sample_rate * N2)
         W_mag = np.concatenate([D_mag[1:w_n], D_mag[-w_n:]])
 
@@ -169,7 +161,7 @@ def crunch(stream, sample_rate, chip_rate, plot=False):
             m_avg = np.mean(m_mag)
             prev_m_avg.append(m_avg)
             mean = np.mean(prev_m_avg)
-            threshold = 10 + 4 * mean + 1 * m_std
+            threshold = 10 + 4 * mean + 1 * m_std # 4
             # print "Corr peak", m_std, m_avg, mean, threshold
 
             corr_max = np.max(m_mag)
@@ -185,7 +177,21 @@ def crunch(stream, sample_rate, chip_rate, plot=False):
 
                 if plot:
                     plt.subplot(2,2,1)
-                    plot_signal(c * np.max(np.abs(e)), t0=(rel_idx)/sample_rate, alpha=0.5)
+                    plot_signal(template * np.max(np.abs(e)), t0=(rel_idx)/sample_rate, alpha=0.5)
+
+                # Capture template
+                # e = np.fft.ifft(E)
+                # g = np.abs(e)[rel_idx:rel_idx + N_code]
+                # print np.max(g), np.mean(g), np.std(g)
+                # g = g / (np.mean(g) + np.std(g))
+                # g = g*2
+                # g = g - np.mean(g)
+                # print len(g), N_code
+                # # print >>open('capture.txt', 'w'), list(g)
+                # np.save(open('template.npy', 'w'), g)
+                # if plot:
+                #     plt.subplot(2,2,1)
+                #     plot_signal(g, t0=(rel_idx)/sample_rate, alpha=0.5)
 
                 if plot2:
                     plot_signal(c, t0=(rel_idx)/sample_rate, alpha=0.5)
@@ -203,7 +209,7 @@ def crunch(stream, sample_rate, chip_rate, plot=False):
                 else:
                     plt.savefig(plot, dpi=150)
 
-                # plt.close()
+                plt.close()
 
             if plot2:
                 plt.show()
@@ -220,6 +226,23 @@ def crunch(stream, sample_rate, chip_rate, plot=False):
 
     print bi * N / sample_rate
 
+def generate_code_symbols(sample_rate, chip_rate):
+    # Resample code
+    # TODO: anti-aliasing filter
+    sps = sample_rate / chip_rate
+    N_code = int(sps * len(code))
+    code_indices = np.arange(N_code) * len(code) / N_code
+    c = code[code_indices] * 2 - 1
+
+    # plot_signal(c)
+    print "Code: {} symbols @ {:.6f} MHz = {:.3f} ms ; {} samples @ {:.6f} Msps".format(
+            len(code), chip_rate/1e6, len(code)/chip_rate*1e3, N_code, sample_rate/1e6)
+
+    return c
+
+def load_code_symbols():
+    c = np.load(open('template.npy', 'r'))
+    return c
 
 if __name__ == "__main__":
     # Parse command-line parameters
@@ -234,5 +257,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    crunch(args.filename, args.sample_rate, args.chip_rate, args.plot)
+    # template = generate_code_symbols(args.sample_rate, args.chip_rate)
+    template = load_code_symbols() # +- 2 - 5 dB beter
+    crunch(args.filename, args.sample_rate, template, args.plot)
 
