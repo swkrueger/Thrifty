@@ -56,6 +56,7 @@ def data_block_reader(stream, block_size):
         yield iq
         chunk = ""
 
+# def carrier_detection()
 
 #@profile
 def crunch(stream, sample_rate, template, plot=False):
@@ -83,9 +84,9 @@ def crunch(stream, sample_rate, template, plot=False):
 
 
 
-    prev_means = deque([10], 10)
+    prev_means = deque([5], 10)
     prev_dc_bias = deque([5], 10)
-    prev_m_avg = deque([10], 10)
+    prev_m_avg = deque([5], 10)
     prev_corr_t = 0
 
     freq_shift = np.exp(-2j * np.pi * np.arange(N) * np.fft.fftfreq(N))
@@ -101,14 +102,19 @@ def crunch(stream, sample_rate, template, plot=False):
         # TODO: shift in freq domain
         d = np.concatenate([a, b])
         D = np.fft.fft(d)
+        # D = np.roll(D, 50) # Temp
         D_mag = np.abs(D)
 
         # w = window for carrier detection
-        w_hz = 40e3
+        # TODO: w_center_hz
+        w_hz = 80e3
         w_n = int(w_hz / sample_rate * N2)
         W_mag = np.concatenate([D_mag[1:w_n], D_mag[-w_n:]])
 
         W_peak_idx = np.argmax(W_mag)
+        # W_peak_idx = np.argmax(W_mag[75:79])+75
+        # W_peak_idx = np.argmax(W_mag[180:186]) + 180
+        W_peak_idx = np.argmax(W_mag[295:304]) + 295
         W_peak = W_mag[W_peak_idx]
 
         D_avg = np.average(D_mag) 
@@ -116,9 +122,14 @@ def crunch(stream, sample_rate, template, plot=False):
         noise = np.mean(prev_means)
         dc_bias = np.mean(prev_dc_bias)
         threshold = dc_bias + 2 * noise
+        threshold = 30
+        # threshold = 10
+
+        # TODO: move carrier_detect(D, f_min, f_max, ignore) to separate function. Write unit tests.
 
         if W_peak > threshold:
-            peak_idx = W_peak_idx + 1 if W_peak_idx < w_n else len(W_mag) - W_peak_idx
+            peak_idx = W_peak_idx + 1 if W_peak_idx < w_n - 1 else W_peak_idx - len(W_mag)
+            # print W_peak_idx, peak_idx
             W_peak_f = sample_rate / N2 * peak_idx
             SNR = 20 * np.log10(W_peak / noise)
             print "Carrier in block #%d (%.3f s) at %.2f kHz (%d) -- energy=%.2f (thres: %.0f, avg: %.0f, S/N: %.2f dB)" % (bi, bi*dt, W_peak_f/1000.0, W_peak_idx, W_peak, threshold, D_avg, SNR)
@@ -134,7 +145,7 @@ def crunch(stream, sample_rate, template, plot=False):
                 plt.plot(np.fft.fftshift(f), np.fft.fftshift(D_mag))
 
             # freq offset correction in freq domain
-            E = np.roll(D, peak_idx)
+            E = np.roll(D, -peak_idx)
 
             if plot:
                 plt.subplot(2,2,3)
@@ -161,7 +172,9 @@ def crunch(stream, sample_rate, template, plot=False):
             m_avg = np.mean(m_mag)
             prev_m_avg.append(m_avg)
             mean = np.mean(prev_m_avg)
-            threshold = 10 + 4 * mean + 1 * m_std # 4
+            # threshold = 5 + 4 * mean + 1 * m_std # 4
+            threshold = 5 + 4 * mean + 1 * m_std # 4
+            # threshold = 10
             # print "Corr peak", m_std, m_avg, mean, threshold
 
             corr_max = np.max(m_mag)
@@ -228,7 +241,6 @@ def crunch(stream, sample_rate, template, plot=False):
 
 def generate_code_symbols(sample_rate, chip_rate):
     # Resample code
-    # TODO: anti-aliasing filter
     sps = sample_rate / chip_rate
     N_code = int(sps * len(code))
     code_indices = np.arange(N_code) * len(code) / N_code
@@ -258,6 +270,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # template = generate_code_symbols(args.sample_rate, args.chip_rate)
-    template = load_code_symbols() # +- 2 - 5 dB beter
+    template = load_code_symbols() # +- 2 - 3 dB beter
     crunch(args.filename, args.sample_rate, template, args.plot)
 
