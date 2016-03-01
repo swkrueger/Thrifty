@@ -10,6 +10,7 @@ import carrier_sync_results
 import block_reader
 import argparse
 import sys
+import itertools
 
 import matplotlib.pyplot as plt # tmp
 
@@ -38,35 +39,31 @@ def freq_shift(fft, peak):
     return shifted_fft
 
 
-def carrier_sync(b, means, settings):
-    r = carrier_sync_results.CarrierSyncResults()
-    r.fft = np.fft.fft(b)
-    fft_mag = np.abs(r.fft)
-
-    means.append(np.mean(fft_mag))
-    r.noise = np.mean(means)
-
-    r.threshold = settings.carrier_threshold_constant + \
-                  settings.carrier_threshold_snr * r.noise
-
-    r.peak = find_peak(fft_mag, settings)
-
-    peak_mag = np.abs(r.fft[r.peak])
-    if peak_mag > r.threshold:
-        r.detected = True
-        r.shifted_fft = freq_shift(r.fft, r.peak)
-        assert(r.shifted_fft[0] >= r.fft[r.peak])
-
-    return r
-
-
-def carrier_sync_iter(blocks, settings):
+def carrier_syncer(settings):
     means = deque([], settings.carrier_noise_window_size)
 
-    for bi, b in enumerate(blocks):
-        r = carrier_sync(b, means, settings)
-        r.idx = bi
-        yield r
+    def carrier_sync(b):
+        r = carrier_sync_results.CarrierSyncResults()
+        r.fft = np.fft.fft(b)
+        fft_mag = np.abs(r.fft)
+    
+        means.append(np.mean(fft_mag))
+        r.noise = np.mean(means)
+    
+        r.threshold = settings.carrier_threshold_constant + \
+                      settings.carrier_threshold_snr * r.noise
+    
+        r.peak = find_peak(fft_mag, settings)
+    
+        peak_mag = np.abs(r.fft[r.peak])
+        if peak_mag > r.threshold:
+            r.detected = True
+            r.shifted_fft = freq_shift(r.fft, r.peak)
+            assert(r.shifted_fft[0] >= r.fft[r.peak])
+    
+        return r
+
+    return carrier_sync
 
 
 if __name__ == '__main__':
@@ -98,11 +95,15 @@ if __name__ == '__main__':
     # overwrite freq_min, max, threshold
 
     blocks = block_reader.data_reader(args.input, settings)
-    for r in carrier_sync_iter(blocks, settings):
+    syncer = carrier_syncer(settings)
+
+    for i, r in enumerate(itertools.imap(syncer, blocks)):
+        r.idx = i
         if not r.detected and not args.all:
             continue
         if args.plot:
             r.plot(settings)
             plt.show()
+
         sys.stderr.write(r.summary(settings) + '\n')
 
