@@ -11,6 +11,7 @@ def signed_index(i, N):
 class CarrierSyncResults:
     def __init__(self):
         self.detected = False
+        self.idx = None
 
     def plot(s, settings):
         f = np.fft.fftfreq(len(s.fft), 1.0/settings.sample_rate)
@@ -40,7 +41,7 @@ class CarrierSyncResults:
         plt.ylabel('Magnitude')
         plt.title('Carrier sync')
 
-        plt.figtext(0.5, 0.95, s.summary(settings.sample_rate), horizontalalignment='center')
+        plt.figtext(0.5, 0.95, s.summary(settings), horizontalalignment='center')
 
         # Zoom in
         lim_low = min(0, settings.carrier_freq_min) - 20e3
@@ -49,7 +50,7 @@ class CarrierSyncResults:
         # plt.ylim([0, N])
 
 
-    def summary(s, sample_rate):
+    def summary(s, settings):
         if s.detected:
             peak_mag = np.abs(s.shifted_fft[0])
         else:
@@ -57,7 +58,16 @@ class CarrierSyncResults:
 
         N = len(s.fft)
         signed_peak = signed_index(s.peak, N)
-        peak_freq = signed_peak * sample_rate / N
+        peak_freq = signed_peak * settings.sample_rate / N
 
         SNR = 20 * np.log10(peak_mag / s.noise)
-        return "detected: %d, SNR: %.2f dB, f: %.3f kHz, peak: %.0f, thres: %.0f, noise: %.0f" % (s.detected, SNR, peak_freq / 1000, peak_mag, s.threshold, s.noise)
+        
+        if s.idx:
+            dt = settings.block_len / settings.sample_rate
+            blk_t = s.idx*dt
+            idx_str = "idx: %d (%.3f s), " % (s.idx, blk_t)
+        else:
+            idx_str = ""
+
+        return idx_str + "detected: %d, SNR: %.2f dB, f: %.3f kHz, peak: %.0f, thres: %.0f, noise: %.0f" % (s.detected, SNR, peak_freq / 1000, peak_mag, s.threshold, s.noise)
+

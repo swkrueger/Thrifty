@@ -104,8 +104,5 @@ if __name__ == '__main__':
         if args.plot:
             r.plot(settings)
             plt.show()
-        dt = settings.block_len / settings.sample_rate
-        summary = r.summary(settings.sample_rate)
-        blk_t = r.idx*dt
-        sys.stderr.write("blk: %d (%.3f s), %s\n" % (r.idx, blk_t, summary))
+        sys.stderr.write(r.summary(settings) + '\n')
 
