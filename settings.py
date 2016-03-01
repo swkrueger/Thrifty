@@ -25,10 +25,10 @@ peak_width = 0 # temp
 # - history = block_len + peak_width
 # - data_len = history + block_len = 2*block_len + peak_width
 # - data_len should be a power of two
-min_data_len = 2*code_len + peak_width
+history_len = code_len + peak_width
+min_data_len = code_len + history_len
 data_len = 1<<int(np.ceil(np.log2(min_data_len)))
-block_len = (data_len - peak_width) / 2
-history_len = block_len + peak_width
+block_len = data_len - history_len
 
 # Carrier sync settings
 carrier_freq_min = -80e3
