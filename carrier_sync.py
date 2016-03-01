@@ -7,7 +7,11 @@ Search for carrier and perform frequency shift if found.
 import numpy as np
 from collections import deque
 import carrier_sync_results
+import block_reader
+import argparse
+import sys
 
+import matplotlib.pyplot as plt # tmp
 
 def find_peak(fft, settings):
     """Return index of peak within window [min_idx,max_idx)."""
@@ -66,5 +70,42 @@ def carrier_sync_iter(blocks, settings):
 
 
 if __name__ == '__main__':
-    pass
+    import settings
+
+    parser = argparse.ArgumentParser(
+            description=__doc__,
+            formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument('input', type=argparse.FileType('rb'),
+                        default='-',
+                        help='input data (\'-\' streams from stdin)')
+    parser.add_argument('-p', dest='plot', action='store_true',
+                        default=False,
+                        help='plot results')
+    parser.add_argument('-a', dest='all', action='store_true',
+                        default=False,
+                        help='output both detections and non-detections')
+    parser.add_argument('-s', dest='sample_rate', type=float,
+                        default=settings.sample_rate,
+                        help='overwrite sample rate')
+    parser.add_argument('-c', dest='chip_rate', type=float,
+                        default=settings.chip_rate,
+                        help='overwrite chip rate')
+
+    args = parser.parse_args()
+    settings.sample_rate = args.sample_rate
+    settings.chip_rate = args.chip_rate
+    # overwrite freq_min, max, threshold
+
+    blocks = block_reader.data_reader(args.input, settings)
+    for r in carrier_sync_iter(blocks, settings):
+        if not r.detected and not args.all:
+            continue
+        if args.plot:
+            r.plot(settings)
+            plt.show()
+        dt = settings.block_len / settings.sample_rate
+        summary = r.summary(settings.sample_rate)
+        blk_t = r.idx*dt
+        sys.stderr.write("blk: %d (%.3f s), %s\n" % (r.idx, blk_t, summary))
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 def signed_index(i, N):
     if i < 0: return i
@@ -44,8 +45,8 @@ class CarrierSyncResults:
         # Zoom in
         lim_low = min(0, settings.carrier_freq_min) - 20e3
         lim_high = max(0, settings.carrier_freq_max) + 20e3
-        plt.xlim([lim_low / 1000.0, lim_high / 1000.0])
-        plt.ylim([0, N])
+        # plt.xlim([lim_low / 1000.0, lim_high / 1000.0])
+        # plt.ylim([0, N])
 
 
     def summary(s, sample_rate):
