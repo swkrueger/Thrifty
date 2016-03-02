@@ -37,3 +37,11 @@ carrier_noise_window_size = 10 # blocks
 carrier_threshold_constant = 40
 carrier_threshold_snr = 2
 
+# Peak detector settings
+detector_noise_window_size = 10
+detector_threshold = {
+    'constant': 5,
+    'snr': 4,
+    'stddev': 1,
+}
+
