@@ -47,7 +47,7 @@ def data_block_reader(stream, block_size):
 
         data = np.frombuffer(chunk, dtype=np.uint8)
 
-        iq = np.empty(len(data)//2, 'complex')
+        iq = np.empty(len(data)//2, 'complex') # gebruik complex64 eerder
         iq.real, iq.imag = data[::2], data[1::2]
         iq /= (255/2)
         iq -= (1 + 1j)
@@ -89,16 +89,15 @@ def crunch(stream, sample_rate, template, plot=False):
     prev_m_avg = deque([5], 10)
     prev_corr_t = 0
 
-    freq_shift = np.exp(-2j * np.pi * np.arange(N) * np.fft.fftfreq(N))
+    # freq_shift = np.exp(-2j * np.pi * np.arange(N) * np.fft.fftfreq(N))
 
     A = np.zeros(N)
     a = np.zeros(N)
     bi = 0
     corr_dt = 0
 
+    # TODO: FFT batch
     for bi, b in enumerate(data_block_reader(stream, N)):
-        B = np.fft.fft(b)
-
         # TODO: shift in freq domain
         d = np.concatenate([a, b])
         D = np.fft.fft(d)
@@ -111,18 +110,22 @@ def crunch(stream, sample_rate, template, plot=False):
         w_n = int(w_hz / sample_rate * N2)
         W_mag = np.concatenate([D_mag[1:w_n], D_mag[-w_n:]])
 
-        W_peak_idx = np.argmax(W_mag)
+        # W_peak_idx = np.argmax(W_mag)
         # W_peak_idx = np.argmax(W_mag[75:79])+75
         # W_peak_idx = np.argmax(W_mag[180:186]) + 180
-        W_peak_idx = np.argmax(W_mag[295:304]) + 295
+        W_peak_idx = np.argmax(W_mag[295:304]) + 295 # 2016-02-24-range-test
         W_peak = W_mag[W_peak_idx]
 
         D_avg = np.average(D_mag) 
 
-        noise = np.mean(prev_means)
+        prev_means.append(D_avg)
+        prev_dc_bias.append(D_mag[0])
+        noise = np.mean(prev_means) # TODO: sum +new -last (rolling_mean.append(x))
+
         dc_bias = np.mean(prev_dc_bias)
-        threshold = dc_bias + 2 * noise
-        threshold = 30
+        threshold = dc_bias + 2 * noise # + std dev?
+        # threshold = 40
+        # threshold = 30  | 2016-02-24-range-test
         # threshold = 10
 
         # TODO: move carrier_detect(D, f_min, f_max, ignore) to separate function. Write unit tests.
@@ -150,6 +153,8 @@ def crunch(stream, sample_rate, template, plot=False):
             if plot:
                 plt.subplot(2,2,3)
                 plt.plot(np.fft.fftshift(f), np.fft.fftshift(np.abs(E)))
+                # plt.plot(np.fft.fftshift(f), np.fft.fftshift(np.log10(E * E.conjugate())))
+                # print np.abs(E)[-5:], np.abs(E)[:5]
 
                 e = np.fft.ifft(E)
                 plt.subplot(2,2,1)
@@ -227,11 +232,7 @@ def crunch(stream, sample_rate, template, plot=False):
             if plot2:
                 plt.show()
 
-
-        prev_means.append(D_avg)
-        prev_dc_bias.append(D_mag[0])
         a = b
-        A = B
 
         # Kontrolleer met time-domain korrelasie
 
