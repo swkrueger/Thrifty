@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
+import base64
 
 def raw_chunk_reader(stream, chunk_size):
     while True:
@@ -61,4 +62,20 @@ def full_data_reader(stream, settings):
     for b in raw_block_reader(stream, settings.data_len * 2):
         c = raw_to_complex(b)
         yield c
+
+
+def serialize_block(block):
+    return base64.b64encode(complex_to_raw(block))
+
+
+def serialized_block_reader(stream, settings):
+    while True:
+        line = stream.readline()
+        if line == '':
+            break
+        idx, s = line.rstrip('\n').split(' ')
+        raw = np.fromstring(base64.b64decode(s), dtype='uint8')
+        d = raw_to_complex(raw)
+        assert(len(d) == settings.data_len)
+        yield int(idx), d
 

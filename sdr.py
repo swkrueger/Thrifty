@@ -34,14 +34,19 @@ def peak_summarizer(settings):
     return summarize
 
 def main(args, settings):
-    blocks = block_reader.data_reader(args.input, settings)
+    if args.input_format == 'raw':
+        blocks = block_reader.data_reader(args.input, settings)
+        enumerated_blocks = enumerate(blocks)
+    elif args.input_format == 'serialized_blocks':
+        enumerated_blocks = block_reader.serialized_block_reader(args.input, settings)
+
     csync = carrier_sync.carrier_syncer(settings)
     despreader = despread.despreader(settings)
     peak_detect = despread.peak_detector(settings)
     peak_summarize = peak_summarizer(settings)
     epoch = time.time()
 
-    for bi, b in enumerate(blocks):
+    for bi, b in enumerated_blocks:
         c = csync(b)
         c.idx = bi
 
@@ -49,6 +54,10 @@ def main(args, settings):
             sys.stderr.write(c.summary(settings) + '\n')
             # c.plot(settings)
             # plt.show()
+
+            if args.carrier_detect_output != None:
+                s = block_reader.serialize_block(b)
+                print >>args.carrier_detect_output, bi, s
 
             corr = despreader(c.shifted_fft)
             p = peak_detect(corr)
@@ -72,6 +81,10 @@ if __name__ == '__main__':
     parser.add_argument('input', type=argparse.FileType('rb'),
                         default='-',
                         help='input data (\'-\' streams from stdin)')
+    parser.add_argument('--input_format', dest='input_format',
+                        choices=['raw', 'serialized_blocks'],
+                        default='raw',
+                        help='format of the input data')
     parser.add_argument('-s', dest='sample_rate', type=float,
                         default=settings.sample_rate,
                         help='overwrite sample rate')
@@ -82,6 +95,10 @@ if __name__ == '__main__':
                         choices=['always', 'carrier_detect', 'corr_peak', 'never'],
                         default='never',
                         help='when a plot should be triggered')
+    parser.add_argument('--export_on_carrier_detect', dest='carrier_detect_output',
+                        type=argparse.FileType('w'),
+                        default=None,
+                        help='(temporary command) write serialized blocks on carrier detect')
     # todo: overwrite freq window
 
     args = parser.parse_args()
