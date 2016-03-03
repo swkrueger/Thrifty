@@ -5,7 +5,7 @@ Correlate with template and detect peak.
 """
 
 import numpy as np
-from collections import deque
+from collections import deque, namedtuple
 
 def despreader(settings):
     code = settings.code_samples
@@ -13,7 +13,6 @@ def despreader(settings):
     template = np.concatenate([code, np.zeros(N)])
     template_fft = np.fft.fft(template)
 
-    print settings.block_len, N
     assert(settings.block_len + settings.peak_width == N)
 
     def despread(fft):
@@ -23,6 +22,11 @@ def despreader(settings):
         return f
 
     return despread
+
+
+PeakDetectorResults = namedtuple(
+    'PeakDetectorResults',
+    'detected, peak_idx, peak_mag, threshold, noise')
 
 
 def peak_detector(settings):
@@ -42,7 +46,8 @@ def peak_detector(settings):
 
         detected = peak_mag > threshold
 
-        return detected, peak_idx, peak_mag, threshold, noise
+        return PeakDetectorResults(
+               detected, peak_idx, peak_mag, threshold, noise)
 
     return detect
 
