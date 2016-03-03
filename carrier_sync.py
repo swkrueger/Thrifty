@@ -49,9 +49,11 @@ def carrier_syncer(settings):
     
         means.append(np.mean(fft_mag))
         r.noise = np.mean(means)
+        stddev = np.std(fft_mag)
     
-        r.threshold = settings.carrier_threshold_constant + \
-                      settings.carrier_threshold_snr * r.noise
+        t = settings.carrier_threshold
+        tc, tn, ts = t['constant'], t['snr'], t['stddev']
+        threshold = tc + tn * r.noise + ts * stddev
     
         r.peak = find_peak(fft_mag, settings)
     

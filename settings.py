@@ -34,8 +34,11 @@ block_len = data_len - history_len
 carrier_freq_min = -80e3
 carrier_freq_max = -78e3
 carrier_noise_window_size = 10 # blocks
-carrier_threshold_constant = 40
-carrier_threshold_snr = 2
+carrier_threshold = {
+    'constant': 0,
+    'snr': 3,
+    'stddev': 0,
+}
 
 # Peak detector settings
 detector_noise_window_size = 10
