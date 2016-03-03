@@ -46,7 +46,7 @@ def main(args, settings):
         c.idx = bi
 
         if c.detected:
-            # sys.stderr.write(c.summary(settings) + '\n')
+            sys.stderr.write(c.summary(settings) + '\n')
             # c.plot(settings)
             # plt.show()
 
@@ -56,7 +56,7 @@ def main(args, settings):
             if p.detected:
                 sys.stderr.write(peak_summarize(p, bi) + '\n')
                 abs_idx = settings.block_len * bi + p.peak_idx
-                print epoch, abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0])
+                # print epoch, abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0])
 
                 # plt.plot(np.abs(corr))
                 # plt.show()
@@ -82,11 +82,11 @@ if __name__ == '__main__':
                         choices=['always', 'carrier_detect', 'corr_peak', 'never'],
                         default='never',
                         help='when a plot should be triggered')
+    # todo: overwrite freq window
 
     args = parser.parse_args()
     settings.sample_rate = args.sample_rate
     settings.chip_rate = args.chip_rate
 
     main(args, settings)
-
 

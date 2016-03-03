@@ -35,7 +35,7 @@ carrier_freq_min = -80e3
 carrier_freq_max = -78e3
 carrier_noise_window_size = 10 # blocks
 carrier_threshold = {
-    'constant': 0,
+    'constant': 15,
     'snr': 3,
     'stddev': 0,
 }
