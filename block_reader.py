@@ -27,8 +27,8 @@ def data_block_reader(stream, block_size):
 
         iq = np.empty(len(data)//2, 'complex') # gebruik complex64 eerder
         iq.real, iq.imag = data[::2], data[1::2]
-        iq /= (255/2)
-        iq -= (1 + 1j)
+        iq -= (127.4 + 127.4j)
+        iq /= 128
 
         assert(len(iq) == block_size)
         yield iq
