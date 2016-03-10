@@ -29,8 +29,15 @@ def raw_block_reader(stream, block_size):
         chunk = ""
 
 
+def raw_to_complex_sim(data):
+    """Convert from simulator samples to complex array."""
+    iq = data.view(np.int8).astype(np.float32).view(np.complex64)
+    iq /= 128
+    return iq
+
+
 def raw_to_complex(data):
-    """Convert from raw samples to complex array."""
+    """Convert from raw RTL-SDR samples to complex array."""
     iq = data.astype(np.float32).view(np.complex64)
     iq -= 127.4 + 127.4j
     iq /= 128
