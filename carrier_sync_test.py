@@ -34,8 +34,11 @@ window_test_data = [
 class Settings:
     sample_rate = 2.2e6
     carrier_noise_window_size = 1
-    carrier_threshold_constant = 500
-    carrier_threshold_snr = 0
+    carrier_threshold = {
+        'constant': 500,
+        'snr': 0,
+        'stddev': 0,
+    }
 
 class TestCarrierSync(unittest.TestCase):
     def testWindow(self):
@@ -59,7 +62,7 @@ class TestCarrierSync(unittest.TestCase):
             if detected:
                 self.assertGreater(np.abs(r.shifted_fft[0]), W * 0.8)
             else:
-                self.assertLess(np.abs(r.fft[r.peak]), s.carrier_threshold_constant)
+                self.assertLess(np.abs(r.fft[r.peak]), s.carrier_threshold['constant'])
 
 
 if __name__ == '__main__':
