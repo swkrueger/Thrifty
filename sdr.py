@@ -47,13 +47,19 @@ def main(args, settings):
     epoch = time.time()
 
     for bi, b in enumerated_blocks:
+        # plt.plot(b.real)
+        # plt.plot(b.imag)
+        # plt.show()
+
         c = csync(b)
         c.idx = bi
 
         if c.detected:
             sys.stderr.write(c.summary(settings) + '\n')
-            # c.plot(settings)
-            # plt.show()
+
+            if args.plot in ['always', 'carrier_detect', 'corr_peak']:
+                c.plot(settings)
+                plt.show()
 
             if args.carrier_detect_output != None:
                 s = block_reader.serialize_block(b)
@@ -65,10 +71,11 @@ def main(args, settings):
             if p.detected:
                 sys.stderr.write(peak_summarize(p, bi) + '\n')
                 abs_idx = settings.block_len * bi + p.peak_idx
-                # print epoch, abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0])
+                print epoch, abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0])
 
-                # plt.plot(np.abs(corr))
-                # plt.show()
+                if args.plot in ['always', 'corr_peak']:
+                    plt.plot(np.abs(corr))
+                    plt.show()
 
                 # Output: carrier freq, carrier phase, carrier energy, carrier SNR, abs peak index, peak energy, peak SNR
 
@@ -91,6 +98,12 @@ if __name__ == '__main__':
     parser.add_argument('-c', dest='chip_rate', type=float,
                         default=settings.chip_rate,
                         help='overwrite chip rate')
+    parser.add_argument('--carrier_freq_min', dest='carrier_freq_min',
+                        type=float, default=settings.carrier_freq_min,
+                        help='overwrite minimum carrier frequency')
+    parser.add_argument('--carrier_freq_max', dest='carrier_freq_max',
+                        type=float, default=settings.carrier_freq_max,
+                        help='overwrite maximum carrier frequency')
     parser.add_argument('-p', dest='plot',
                         choices=['always', 'carrier_detect', 'corr_peak', 'never'],
                         default='never',
@@ -104,6 +117,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     settings.sample_rate = args.sample_rate
     settings.chip_rate = args.chip_rate
+    settings.carrier_freq_min = args.carrier_freq_min
+    settings.carrier_freq_max = args.carrier_freq_max
 
     main(args, settings)
 
