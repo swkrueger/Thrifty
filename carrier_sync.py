@@ -14,6 +14,19 @@ import itertools
 
 import matplotlib.pyplot as plt # tmp
 
+def dirichlet_kernel(k, settings):
+    """Calculate dirichlet weights.
+    
+    From: https://en.wikipedia.org/wiki/Discrete_Fourier_transform:
+    DFT of a rect function is a sinc-like function (Dirichlet kernel)
+    """
+    N, W = settings.data_len, settings.code_len
+    k = np.array(k, dtype=np.float64)
+    f = lambda k: np.sin(np.pi*W*k/N)/W/np.sin(np.pi*k/N)
+    # f = lambda k: np.sin(np.pi*W*k/N)/W/(np.pi*k/N) # sinc
+    return np.piecewise(k, [k == 0, k != 0], [lambda x: 1, f])
+
+
 def find_peak(fft, settings):
     """Return index of peak within window [min_idx,max_idx)."""
     normalise = len(fft) / settings.sample_rate
@@ -57,11 +70,16 @@ def carrier_syncer(settings):
     
         r.peak = find_peak(fft_mag, settings)
     
-        peak_mag = np.abs(r.fft[r.peak])
-        if peak_mag > r.threshold:
+        # Calculate weighted average of peak
+        n = settings.carrier_peak_average
+        rel = np.arange(-n, n + 1)
+        weights = dirichlet_kernel(rel, settings)
+        r.peak_avg_energy = np.sum(fft_mag[r.peak + rel]) / np.sum(weights)
+
+        if r.peak_avg_energy > r.threshold:
             r.detected = True
             r.shifted_fft = freq_shift(r.fft, r.peak)
-            assert(r.shifted_fft[0] >= r.fft[r.peak])
+            assert(np.abs(r.shifted_fft[0]) >= np.abs(r.fft[r.peak]))
     
         return r
 

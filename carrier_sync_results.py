@@ -60,7 +60,7 @@ class CarrierSyncResults:
         signed_peak = signed_index(s.peak, N)
         peak_freq = signed_peak * settings.sample_rate / N
 
-        SNR = 20 * np.log10(peak_mag / s.noise)
+        SNR = 20 * np.log10(s.peak_avg_energy / s.noise)
         
         if s.idx:
             dt = settings.block_len / settings.sample_rate

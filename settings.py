@@ -12,6 +12,8 @@ sample_rate = 2.2e6
 gain = 20
 
 # Code settings
+# import detector
+# code_samples = detector.generate_code_symbols(2.2e6, 1.08e6)
 code_samples = np.load(open('template.npy', 'r'))
 code_len = len(code_samples)
 
@@ -31,14 +33,18 @@ data_len = 1<<int(np.ceil(np.log2(min_data_len)))
 block_len = data_len - history_len
 
 # Carrier sync settings
-carrier_freq_min = -80e3
-carrier_freq_max = -78e3
+# carrier_freq_min = -30e3
+# carrier_freq_max = -25e3
+carrier_freq_min = -76e3
+carrier_freq_max = -80e3
+
 carrier_noise_window_size = 10 # blocks
 carrier_threshold = {
-    'constant': 15,
+    'constant': 5,
     'snr': 3,
     'stddev': 0,
 }
+carrier_peak_average = 1
 
 # Peak detector settings
 detector_noise_window_size = 10
