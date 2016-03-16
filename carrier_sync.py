@@ -108,10 +108,18 @@ if __name__ == '__main__':
     parser.add_argument('-c', dest='chip_rate', type=float,
                         default=settings.chip_rate,
                         help='overwrite chip rate')
+    parser.add_argument('--carrier_freq_min', dest='carrier_freq_min',
+                        type=float, default=settings.carrier_freq_min,
+                        help='overwrite minimum carrier frequency')
+    parser.add_argument('--carrier_freq_max', dest='carrier_freq_max',
+                        type=float, default=settings.carrier_freq_max,
+                        help='overwrite maximum carrier frequency')
 
     args = parser.parse_args()
     settings.sample_rate = args.sample_rate
     settings.chip_rate = args.chip_rate
+    settings.carrier_freq_min = args.carrier_freq_min
+    settings.carrier_freq_max = args.carrier_freq_max
     # overwrite freq_min, max, threshold
 
     blocks = block_reader.data_reader(args.input, settings)
