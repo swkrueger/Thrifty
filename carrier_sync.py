@@ -101,7 +101,7 @@ if __name__ == '__main__':
                         help='plot results')
     parser.add_argument('-a', dest='all', action='store_true',
                         default=False,
-                        help='output both detections and non-detections')
+                        help='output summary for detections and non-detections')
     parser.add_argument('-s', dest='sample_rate', type=float,
                         default=settings.sample_rate,
                         help='overwrite sample rate')
@@ -114,6 +114,9 @@ if __name__ == '__main__':
     parser.add_argument('--carrier_freq_max', dest='carrier_freq_max',
                         type=float, default=settings.carrier_freq_max,
                         help='overwrite maximum carrier frequency')
+    parser.add_argument('-o', '--output', dest='output',
+                        type=argparse.FileType('w'), default=None,
+                        help='output serialized block on detection')
 
     args = parser.parse_args()
     settings.sample_rate = args.sample_rate
@@ -125,7 +128,8 @@ if __name__ == '__main__':
     blocks = block_reader.data_reader(args.input, settings)
     syncer = carrier_syncer(settings)
 
-    for i, r in enumerate(itertools.imap(syncer, blocks)):
+    for i, b in enumerate(blocks):
+        r = syncer(b)
         r.idx = i
         if not r.detected and not args.all:
             continue
@@ -134,4 +138,8 @@ if __name__ == '__main__':
             plt.show()
 
         sys.stderr.write(r.summary(settings) + '\n')
+
+        if args.output != None:
+            s = block_reader.serialize_block(b)
+            print >>args.output, i, s
 
