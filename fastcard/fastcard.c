@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <complex.h>
+#include <b64/cencode.h>
 
 #define USE_VOLK
 
@@ -43,6 +44,7 @@ fc_complex *samples;
 fc_complex *fft;
 float *fft_mag;
 fc_complex lut[0x10000];
+char *base64;
 
 void generate_lut() {
     // generate lookup table for raw-to-complex conversion
@@ -70,7 +72,10 @@ void init_buffers() {
     // fft_mag = (fc_complex*) volk_malloc(block_size * sizeof(fc_complex), alignment);
     fft_mag = (float*) malloc(block_size * sizeof(float));
 
-    if (raw_samples == NULL) {
+    // real size: (2*block_size+2)/3*4 + 1
+    base64 = (char*) malloc((2*block_size+2)/3*4 + block_size);
+
+    if (raw_samples == NULL || fft_mag == NULL || base64 == NULL) {
         fprintf(stderr, "init buffers failed\n");
         exit(1);
     }
@@ -84,6 +89,7 @@ void free_buffers() {
     free_fft();
     free(raw_samples);
     free(fft_mag);
+    free(base64);
 }
 
 bool read_next_block(FILE *f) {
@@ -221,11 +227,33 @@ bool detect_carrier(carrier_detection_t *d) {
     return false;
 }
 
+void base64_encode() {
+    const char* input = (const char*) raw_samples;
+    char* c = base64;
+    int cnt = 0;
+    base64_encodestate s;
+
+    base64_init_encodestate(&s);
+    cnt = base64_encode_block(input, block_size * 2, c, &s);
+    c += cnt;
+    cnt = base64_encode_blockend(c, &s);
+    c += cnt;
+
+    // null-terminate
+    *c = 0;
+}
+
 int main() {
     // FILE* in = stdin;
     FILE* in = fopen("test.dat", "rb");
     if (in == NULL) {
         perror("Failed to open input file");
+        exit(1);
+    }
+
+    FILE* out = fopen("out.txt", "w");
+    if (out == NULL) {
+        perror("Failed to open output file");
         exit(1);
     }
 
@@ -241,14 +269,20 @@ int main() {
             fprintf(stderr,
                     "block #%d: mag[%d] = %.1f (thresh = %.1f)\n",
                     i, d.argmax, d.max, d.threshold);
-            // export
+
+            base64_encode();
+            fprintf(out, "%d %s\n", i, base64);
         }
         ++i;
     }
 
-    free_fft();
+    free_buffers();
 
     if (in != stdin) {
         fclose(in);
+    }
+
+    if (out != stdout) {
+        fclose(out);
     }
 }
