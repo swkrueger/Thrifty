@@ -1,11 +1,12 @@
 // FastCarD: Fast Carrier Detection
 
 #include <endian.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <complex>
+#include <complex.h>
 
 #define USE_VOLK
 
@@ -21,19 +22,20 @@
 #include <volk/volk.h>
 #endif
 
-typedef std::complex<float> fc_complex;
+#ifndef __STDC_IEC_559_COMPLEX__
+#error Complex numbers not supported
+#endif
+
+typedef float complex fc_complex;
 
 // Settings
-int block_size_log2N = 13; // 8196
+int block_size = 1<<13; // 8196
 int history_size = 2085;
 
 float threshold_constant = 5;
 float threshold_snr = 3;
 int carrier_freq_min = 123;
 int carrier_freq_max = 130;
-
-// Internal
-int block_size = 1<<block_size_log2N;
 
 // Buffers
 uint16_t *raw_samples;
@@ -46,11 +48,11 @@ void generate_lut() {
     // generate lookup table for raw-to-complex conversion
     for (size_t i = 0; i <= 0xffff; ++i) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-        lut[i] = fc_complex((float(i & 0xff) - 127.4f) * (1.0f/128.0f),
-                            (float(i >> 8) - 127.4f) * (1.0f/128.0f));
+        ((float*)&lut[i])[0] = ((float)(i & 0xff) - 127.4f) * (1.0f/128.0f);
+        ((float*)&lut[i])[1] = ((float)(i >> 8) - 127.4f) * (1.0f/128.0f);
 #elif __BYTE_ORDER == __BIG_ENDIAN
-        lut[i] = fc_complex((float(i >> 8) - 127.4f) * (1.0f/128.0f),
-                            (float(i & 0xff) - 127.4f) * (1.0f/128.0f));
+        ((float*)&lut[i])[0] = ((float)(i >> 8) - 127.4f) * (1.0f/128.0f);
+        ((float*)&lut[i])[1] = ((float)(i & 0xff) - 127.4f) * (1.0f/128.0f);
 #else
 #error "Could not determine endianness"
 #endif
@@ -126,8 +128,8 @@ void init_fft() {
     
     fft_plan = fftwf_plan_dft_1d(
             block_size,
-            reinterpret_cast<fftwf_complex *>(samples),
-            reinterpret_cast<fftwf_complex *>(fft),
+            (fftwf_complex*) samples,
+            (fftwf_complex*) fft,
             FFTW_FORWARD,
             FFTW_MEASURE);
 
@@ -179,7 +181,7 @@ bool detect_carrier() {
 
 #else
     for (int i = 0; i < block_size; ++i) {
-        fft_mag[i] = std::abs(fft[i]);
+        fft_mag[i] = cabsf(fft[i]);
     }
 
     float sum = 0;
