@@ -7,7 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <complex.h>
-#include <b64/cencode.h>
+
+#include "lib/base64.h"
 
 #define USE_VOLK
 
@@ -72,8 +73,7 @@ void init_buffers() {
     // fft_mag = (fc_complex*) volk_malloc(block_size * sizeof(fc_complex), alignment);
     fft_mag = (float*) malloc(block_size * sizeof(float));
 
-    // real size: (2*block_size+2)/3*4 + 1
-    base64 = (char*) malloc((2*block_size+2)/3*4 + block_size);
+    base64 = (char*) malloc((2*block_size+2)/3*4 + 1);
 
     if (raw_samples == NULL || fft_mag == NULL || base64 == NULL) {
         fprintf(stderr, "init buffers failed\n");
@@ -229,18 +229,7 @@ bool detect_carrier(carrier_detection_t *d) {
 
 void base64_encode() {
     const char* input = (const char*) raw_samples;
-    char* c = base64;
-    int cnt = 0;
-    base64_encodestate s;
-
-    base64_init_encodestate(&s);
-    cnt = base64_encode_block(input, block_size * 2, c, &s);
-    c += cnt;
-    cnt = base64_encode_blockend(c, &s);
-    c += cnt;
-
-    // null-terminate
-    *c = 0;
+    Base64encode(base64, input, block_size * 2);
 }
 
 int main() {
