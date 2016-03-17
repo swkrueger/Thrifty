@@ -34,8 +34,8 @@ int history_size = 2085;
 
 float threshold_constant = 5;
 float threshold_snr = 3;
-int carrier_freq_min = 123;
-int carrier_freq_max = 130;
+int carrier_freq_min = 7897;  // -80 kHz
+int carrier_freq_max = 7917;  // -75 kHz
 
 // Buffers
 uint16_t *raw_samples;
@@ -63,7 +63,8 @@ void init_fft();
 void free_fft();
 
 void init_buffers() {
-    raw_samples = (uint16_t*) calloc(block_size, sizeof(uint16_t));
+    raw_samples = (uint16_t*) malloc(block_size * sizeof(uint16_t));
+    for (int i = 0; i < block_size; ++i) raw_samples[i] = 127;
 
     // size_t alignment = volk_get_alignment();
     // fft_mag = (fc_complex*) volk_malloc(block_size * sizeof(fc_complex), alignment);
@@ -238,7 +239,7 @@ int main() {
         perform_fft();
         if (detect_carrier(&d)) {
             fprintf(stderr,
-                    "block #%d: detect @ mag[%d] = %f (thresh = %f)\n",
+                    "block #%d: mag[%d] = %.1f (thresh = %.1f)\n",
                     i, d.argmax, d.max, d.threshold);
             // export
         }
