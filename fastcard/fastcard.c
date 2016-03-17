@@ -163,7 +163,13 @@ void free_fft() {
 
 #endif
 
-bool detect_carrier() {
+typedef struct {
+    unsigned int argmax;
+    float max;
+    float threshold;
+} carrier_detection_t;
+
+bool detect_carrier(carrier_detection_t *d) {
     // calculate magnitude
 #ifdef USE_VOLK
     volk_32fc_magnitude_32f_u(fft_mag, fft, block_size);
@@ -203,7 +209,11 @@ bool detect_carrier() {
     float threshold = threshold_constant + threshold_snr * mean;
 
     if (max > threshold) {
-        fprintf(stderr, "detect @ mag[%d] = %f (thresh = %f)\n", argmax, max, threshold);
+        if (d != NULL) {
+            d->argmax = argmax;
+            d->max = max;
+            d->threshold = threshold;
+        }
         return true;
     }
 
@@ -220,12 +230,19 @@ int main() {
 
     init_buffers();
 
+    carrier_detection_t d;
+
+    int i = 0;
     while (read_next_block(in)) {
         convert_raw_to_complex();
         perform_fft();
-        if (detect_carrier()) {
+        if (detect_carrier(&d)) {
+            fprintf(stderr,
+                    "block #%d: detect @ mag[%d] = %f (thresh = %f)\n",
+                    i, d.argmax, d.max, d.threshold);
             // export
         }
+        ++i;
     }
 
     free_fft();
