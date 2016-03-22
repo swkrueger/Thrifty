@@ -11,13 +11,17 @@
 #include "lib/base64.h"
 
 #define USE_VOLK
+// #define USE_FFTW
+#define USE_HELLOFFT
 
-#define FFTLIB FFTW
-
-#if FFTLIB == FFTW
+#ifdef USE_FFTW
 #include <fftw3.h>
-#else
-#error "Unknown FFT library"
+#endif
+
+#ifdef USE_HELLOFFT
+#include <unistd.h>
+#include "lib/hello_fft/gpu_fft.h"
+#include "lib/hello_fft/mailbox.h"
 #endif
 
 #ifdef USE_VOLK
@@ -31,11 +35,12 @@
 typedef float complex fc_complex;
 
 // Settings
-int block_size = 1<<13; // 8196
+#define block_size_log2 13
+int block_size = 1<<block_size_log2; // 8196
 int history_size = 2085;
 
-float threshold_constant = 5;
-float threshold_snr = 3;
+float threshold_constant = 12;
+float threshold_snr = 0;
 int carrier_freq_min = 7897;  // -80 kHz
 int carrier_freq_max = 7917;  // -75 kHz
 
@@ -117,7 +122,7 @@ void convert_raw_to_complex() {
     }
 }
 
-#if FFTLIB == FFTW
+#ifdef USE_FFTW
 
 fftwf_plan fft_plan;
 
@@ -158,14 +163,34 @@ void perform_fft() {
     fftwf_execute(fft_plan);
 }
 
-#else
+#endif
+#ifdef USE_HELLOFFT
+
+int mbox;
+struct GPU_FFT *fft_state;
 
 void init_fft() {
     samples = (fc_complex*) malloc(sizeof(fc_complex) * block_size);
+    int mbox = mbox_open();
+
+    int ret = gpu_fft_prepare(mbox, block_size_log2, GPU_FFT_FWD, 1, &fft_state);
+    switch(ret) {
+        case -1: printf("Unable to enable V3D. Please check your firmware is up to date.\n"); exit(1);
+        case -2: printf("log2_N=%d not supported.  Try between 8 and 21.\n", block_size_log2); exit(1);
+        case -3: printf("Out of memory.  Try a smaller batch or increase GPU memory.\n"); exit(1);
+        case -4: printf("Unable to map Videocore peripherals into ARM memory space.\n"); exit(1);
+    }
 }
 
 void free_fft() {
     free(samples);
+}
+
+void perform_fft() {
+    memcpy(fft_state->in, samples, sizeof(fc_complex) * block_size);
+    // usleep(1); // yield to OS
+    gpu_fft_execute(fft_state);
+    fft = (fc_complex*) fft_state->out;
 }
 
 #endif
@@ -179,10 +204,16 @@ typedef struct {
 bool detect_carrier(carrier_detection_t *d) {
     // calculate magnitude
 #ifdef USE_VOLK
-    volk_32fc_magnitude_32f_u(fft_mag, fft, block_size);
-
-    float sum; // todo: volk_malloc
-    volk_32f_accumulator_s32f(&sum, fft_mag, block_size);
+    float sum = 0; // todo: volk_malloc
+    if (threshold_snr == 0) {
+        volk_32fc_magnitude_32f_u(
+                fft_mag + carrier_freq_min,
+                fft + carrier_freq_min,
+                carrier_freq_max - carrier_freq_min + 1);
+    } else {
+        volk_32fc_magnitude_32f_u(fft_mag, fft, block_size);
+        volk_32f_accumulator_s32f(&sum, fft_mag, block_size);
+    }
 
     unsigned int argmax; // todo: volk_malloc
     volk_32f_index_max_16u(
