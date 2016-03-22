@@ -11,6 +11,7 @@ import block_reader
 import argparse
 import sys
 import itertools
+# import pyfftw
 
 import matplotlib.pyplot as plt # tmp
 
@@ -54,9 +55,17 @@ def freq_shift(fft, peak):
 
 def carrier_syncer(settings):
     means = deque([], settings.carrier_noise_window_size)
+    # ba = pyfftw.empty_aligned(settings.data_len, dtype='complex64')
 
+    n = settings.carrier_peak_average
+    rel = np.arange(-n, n + 1)
+    weights = dirichlet_kernel(rel, settings)
+
+    # @profile
     def carrier_sync(b):
         r = carrier_sync_results.CarrierSyncResults()
+        # ba[:] = b
+        # r.fft = pyfftw.interfaces.numpy_fft.fft(ba)
         r.fft = np.fft.fft(b)
         fft_mag = np.abs(r.fft)
     
@@ -71,9 +80,6 @@ def carrier_syncer(settings):
         r.peak = find_peak(fft_mag, settings)
     
         # Calculate weighted average of peak
-        n = settings.carrier_peak_average
-        rel = np.arange(-n, n + 1)
-        weights = dirichlet_kernel(rel, settings)
         r.peak_avg_energy = np.sum(fft_mag[r.peak + rel]) / np.sum(weights)
 
         if r.peak_avg_energy > r.threshold:
