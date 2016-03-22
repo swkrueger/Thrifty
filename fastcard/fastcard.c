@@ -1,4 +1,18 @@
-// FastCarD: Fast Carrier Detection
+/**
+ * FastCarD: Fast Carrier Detection
+ * 
+ * Features:
+ *  - fast IO and raw-to-complex conversion
+ *  - fast fft
+ *    + fftw if USE_FFTW (default)
+ *    + gpufft if USE_HELLOFFT (rpi)
+ *  - volk for abs
+ *  - fast md5 (with libb64)
+ *
+ *  Dependencies:
+ *   - fftw / gpufft
+ *   - libvolk
+ **/
 
 #include <endian.h>
 #include <stdbool.h>
