@@ -26,7 +26,18 @@ def despreader(settings):
 
 PeakDetectorResults = namedtuple(
     'PeakDetectorResults',
-    'detected, peak_idx, peak_mag, threshold, noise')
+    'detected, peak_idx, offset, peak_mag, threshold, noise')
+
+
+# def fit(peak_mag, peak_idx):
+#     """Simple center-of-mass interpolation."""
+#     n = 1
+#     rel = np.array(np.arange(-n, n+1))
+#     noms = (rel + n + 1) * peak_mag[peak_idx + rel]
+#     nom = np.sum(noms)
+#     den = np.sum(peak_mag[peak_idx + rel])
+#     offset = nom / den - n - 1
+#     return offset
 
 
 def peak_detector(settings):
@@ -43,11 +54,14 @@ def peak_detector(settings):
         threshold = tc + tn * noise + ts * stddev
         peak_idx = np.argmax(mag)
         peak_mag = mag[peak_idx]
+        # peak_mag = np.sum(mag[peak_idx-1:peak_idx+2]) / (1+0.9+0.9)
 
         detected = peak_mag > threshold
+        # offset = fit(mag, peak_idx)
+        offset = 0
 
         return PeakDetectorResults(
-               detected, peak_idx, peak_mag, threshold, noise)
+               detected, peak_idx, offset, peak_mag, threshold, noise)
 
     return detect
 

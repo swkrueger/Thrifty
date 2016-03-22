@@ -26,9 +26,9 @@ def peak_summarizer(settings):
         prev_corr_t[0] = t
         
         SNR = 20 * np.log10(r.peak_mag / r.noise)
-        return "corr; idx: {}:{} ({:.6f} s); dt={:.6f}; peak={:.0f} " \
+        return "corr; idx: {}:{}{:+.3f} ({:.6f} s); dt={:.6f}; peak={:.0f} " \
                 "thresh={:.0f}; noise={:.0f} SNR={:.2f}".format(
-                bi, r.peak_idx, t, corr_dt, r.peak_mag,
+                bi, r.peak_idx, r.offset, t, corr_dt, r.peak_mag,
                 r.threshold, r.noise, SNR)
 
     return summarize
@@ -44,7 +44,6 @@ def main(args, settings):
     despreader = despread.despreader(settings)
     peak_detect = despread.peak_detector(settings)
     peak_summarize = peak_summarizer(settings)
-    epoch = time.time()
 
     for bi, b in enumerated_blocks:
         # plt.plot(b.real)
@@ -57,7 +56,7 @@ def main(args, settings):
         if c.detected:
             sys.stderr.write(c.summary(settings) + '\n')
 
-            if args.plot in ['always', 'carrier_detect', 'corr_peak']:
+            if args.plot in ['always', 'carrier_detect']:
                 c.plot(settings)
                 plt.show()
 
@@ -71,7 +70,8 @@ def main(args, settings):
             if p.detected:
                 sys.stderr.write(peak_summarize(p, bi) + '\n')
                 abs_idx = settings.block_len * bi + p.peak_idx
-                print epoch, abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0])
+                # TODO: print time.time() of carrier detection
+                print time.time(), abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0]), p.offset, p.noise, c.noise
 
                 if args.plot in ['always', 'corr_peak']:
                     plt.plot(np.abs(corr))
@@ -112,7 +112,6 @@ if __name__ == '__main__':
                         type=argparse.FileType('w'),
                         default=None,
                         help='(temporary command) write serialized blocks on carrier detect')
-    # todo: overwrite freq window
 
     args = parser.parse_args()
     settings.sample_rate = args.sample_rate
