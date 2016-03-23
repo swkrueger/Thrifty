@@ -22,6 +22,9 @@
 #include <string.h>
 #include <complex.h>
 
+#include <error.h>
+#include <argp.h>
+
 #include "configuration.h"
 #include "lib/base64.h"
 
@@ -54,6 +57,9 @@ float threshold_constant = 12;
 float threshold_snr = 0;
 int carrier_freq_min = 7897;  // -80 kHz
 int carrier_freq_max = 7917;  // -75 kHz
+
+char *input_file = "";
+char *output_file = NULL;
 
 // Buffers
 uint16_t *raw_samples;
@@ -280,18 +286,61 @@ void base64_encode() {
     Base64encode(base64, input, block_size * 2);
 }
 
-int main() {
-    // FILE* in = stdin;
-    FILE* in = fopen("test.dat", "rb");
-    if (in == NULL) {
-        perror("Failed to open input file");
-        exit(1);
+/* Parse arguments */
+const char *argp_program_version = "fastcard 0.1";
+static char doc[] = "FastCarD: Fast Carrier Detection";
+static struct argp_option options[] = {
+    {"input",  'i', "<FILE>", 0,
+        "Input file (blank or omit for stdin)", 0},
+    {"output", 'o', "<FILE>", 0,
+        "Output detections to file (blank or '-' for stdout)", 0},
+    {0, 0, 0, 0, 0, 0}
+};
+
+/* Parse a single option. */
+static error_t parse_opt (int key, char *arg, struct argp_state *state) {
+  switch (key) {
+    case 'i': input_file = arg; break;
+    case 'o': output_file = arg; break;
+    // We don't take any arguments
+    case ARGP_KEY_ARG: argp_usage(state); break;
+    default:
+      return ARGP_ERR_UNKNOWN;
+    }
+  return 0;
+}
+
+static struct argp argp = {options, parse_opt, NULL, doc, NULL, NULL, NULL};
+
+void parse_args(int argc, char **argv) {
+    argp_parse(&argp, argc, argv, 0, 0, 0);
+}
+
+int main(int argc, char **argv) {
+    parse_args(argc, argv);
+
+    FILE* in;
+    if (strlen(input_file) == 0 || strcmp(input_file, "-") == 0) {
+        in = stdin;
+    } else {
+        in = fopen(input_file, "rb");
+        if (in == NULL) {
+            perror("Failed to open input file");
+            exit(1);
+        }
     }
 
-    FILE* out = fopen("out.txt", "w");
-    if (out == NULL) {
-        perror("Failed to open output file");
-        exit(1);
+    FILE* out = NULL;
+    if (output_file != NULL) {
+        if (strlen(output_file) == 0 || strcmp(output_file, "-") == 0) {
+            out = stdout;
+        } else {
+            out = fopen(output_file, "w");
+            if (out == NULL) {
+                perror("Failed to open output file");
+                exit(1);
+            }
+        }
     }
 
     init_buffers();
@@ -307,8 +356,10 @@ int main() {
                     "block #%d: mag[%d] = %.1f (thresh = %.1f)\n",
                     i, d.argmax, d.max, d.threshold);
 
-            base64_encode();
-            fprintf(out, "%d %s\n", i, base64);
+            if (out != NULL) {
+                base64_encode();
+                fprintf(out, "%d %s\n", i, base64);
+            }
         }
         ++i;
     }
@@ -319,7 +370,7 @@ int main() {
         fclose(in);
     }
 
-    if (out != stdout) {
+    if (out != NULL && out != stdout) {
         fclose(out);
     }
 }
