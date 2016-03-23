@@ -2,14 +2,20 @@
 # FastCarD CMake file
 #
 # Options:
-#   CMAKE_BUILD_TYPE:
-#       "Release", "Debug", "RelWithDebInfo" and "MinSizeRel"
-#   FFT_LIB:
-#       "FFTW" or "GPU_FFT" (Rpi)
-#       FFT library that should be used (default: FFTW)
-#   TUNE_BUILD:
+#
+#   - CMAKE_BUILD_TYPE:
+#       "Release", "Debug", "RelWithDebInfo" and "MinSizeRel".
+#
+#   - FFT_LIB:
+#       "FFTW" or "GPU_FFT".
+#       FFT library that should be used (default: FFTW or GPU_FFT on Rpi).
+#
+#   - TUNE_BUILD:
 #       Tune build to work on this specific PC without support for earlier CPUs
 #       in the architecture family.
+#
+#   - USE_VOLK:
+#       Use vector optimized library of kernels (VOLK).
 ##
 
 cmake_minimum_required (VERSION 2.6)
@@ -80,6 +86,13 @@ endif()
 add_library(Base64Functions lib/base64.c)
 set (EXTRA_LIBS ${EXTRA_LIBS} Base64Functions)
 
+# add volk dependency
+option (USE_VOLK
+    "Use vector optimized library of kernels (VOLK)" ON)
+if (USE_VOLK)
+    set (EXTRA_LIBS ${EXTRA_LIBS} volk)
+endif (USE_VOLK)
+
 # configure a header file to pass some of the CMake settings to the source code
 configure_file (
   "${PROJECT_SOURCE_DIR}/configuration.h.in"
@@ -91,5 +104,5 @@ configure_file (
 include_directories("${PROJECT_BINARY_DIR}")
 
 add_executable(fastcard fastcard.c)
-target_link_libraries (fastcard volk ${EXTRA_LIBS})
+target_link_libraries (fastcard ${EXTRA_LIBS})
 

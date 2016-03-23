@@ -3,3 +3,4 @@
 #cmakedefine FFT_LIB "@FFT_LIB@"
 #cmakedefine USE_FFTW
 #cmakedefine USE_GPUFFT
+#cmakedefine USE_VOLK

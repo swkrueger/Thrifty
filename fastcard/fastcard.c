@@ -25,8 +25,6 @@
 #include "configuration.h"
 #include "lib/base64.h"
 
-#define USE_VOLK
-
 #ifdef USE_FFTW
 #include <fftw3.h>
 #endif
