@@ -2,13 +2,23 @@
 # FastCarD CMake file
 #
 # Options:
-#   FFT_LIB: "FFTW" or "GPU_FFT" (Rpi)
-#            FFT library that should be used (default: FFTW)
+#   CMAKE_BUILD_TYPE:
+#       "Release", "Debug", "RelWithDebInfo" and "MinSizeRel"
+#   FFT_LIB:
+#       "FFTW" or "GPU_FFT" (Rpi)
+#       FFT library that should be used (default: FFTW)
+#   TUNE_BUILD:
+#       Tune build to work on this specific PC without support for earlier CPUs
+#       in the architecture family.
 ##
 
 cmake_minimum_required (VERSION 2.6)
 project (fastcard)
 enable_language(C)
+
+# show all errors
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
 # the version number
 set (FASTCARD_VERSION_MAJOR 0)
@@ -23,15 +33,41 @@ if(NOT CMAKE_BUILD_TYPE)
     message(STATUS "Build type not specified: defaulting to release.")
 endif()
 
+# tune build
+option (TUNE_BUILD 
+        "Tune build to work on this specific PC without support for earlier CPUs in the architecture family." ON) 
+if (TUNE_BUILD)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mtune=native")
+endif (TUNE_BUILD)
+
+# detect raspberry pi 1
+execute_process(COMMAND grep -o BCM2708 /proc/cpuinfo
+    OUTPUT_VARIABLE SOC_NAME)
+
+if ("${SOC_NAME}" STREQUAL "")
+    set(RASPBERRYPI1 false)
+else()
+    set(RASPBERRYPI1 true)
+endif()
+
+# set special flags for RPI1
+if (RASPBERRYPI1)
+    message(STATUS "Detected Raspberry Pi")
+    # use GPU_FFT as default for RPI1
+    set(FFT_LIB_DEFAULT "GPU_FFT")
+else()
+    set(FFT_LIB_DEFAULT "FFTW")
+endif (RASPBERRYPI1)
+
 # add option to choose FFT library
-set(FFT_LIB "FFTW" CACHE STRING "FFT library that should be used")
+set(FFT_LIB ${FFT_LIB_DEFAULT} CACHE STRING "FFT library that should be used")
 set(FFT_LIB_VALUES "FFTW;GPU_FFT")
 set_property(CACHE FFT_LIB PROPERTY STRINGS ${FFT_LIB_VALUES})
-message(STATUS "FFT_LIB='${FFT_LIB}'")
+message(STATUS "FFT library that will be used: ${FFT_LIB}")
 
 if (${FFT_LIB} MATCHES "FFTW")
     set (USE_FFTW ON)
-    set (EXTRA_LIBS ${EXTRA_LIBS} fftw3f)
+    set (EXTRA_LIBS ${EXTRA_LIBS} fftw3f m)
 elseif (${FFT_LIB} MATCHES "GPU_FFT")
     set (USE_GPUFFT ON)
     add_subdirectory(lib/gpu_fft)
@@ -55,5 +91,5 @@ configure_file (
 include_directories("${PROJECT_BINARY_DIR}")
 
 add_executable(fastcard fastcard.c)
-target_link_libraries (fastcard m volk ${EXTRA_LIBS})
+target_link_libraries (fastcard volk ${EXTRA_LIBS})
 
