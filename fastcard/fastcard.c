@@ -5,7 +5,7 @@
  *  - fast IO and raw-to-complex conversion
  *  - fast fft
  *    + fftw if USE_FFTW (default)
- *    + gpufft if USE_HELLOFFT (rpi)
+ *    + gpufft if USE_GPUFFT (rpi)
  *  - volk for abs
  *  - fast md5 (with libb64)
  *
@@ -26,16 +26,16 @@
 
 #define USE_VOLK
 // #define USE_FFTW
-#define USE_HELLOFFT
+#define USE_GPUFFT
 
 #ifdef USE_FFTW
 #include <fftw3.h>
 #endif
 
-#ifdef USE_HELLOFFT
+#ifdef USE_GPUFFT
 #include <unistd.h>
-#include "lib/hello_fft/gpu_fft.h"
-#include "lib/hello_fft/mailbox.h"
+#include "lib/gpu_fft/gpu_fft.h"
+#include "lib/gpu_fft/mailbox.h"
 #endif
 
 #ifdef USE_VOLK
@@ -178,7 +178,7 @@ void perform_fft() {
 }
 
 #endif
-#ifdef USE_HELLOFFT
+#ifdef USE_GPUFFT
 
 int mbox;
 struct GPU_FFT *fft_state;
