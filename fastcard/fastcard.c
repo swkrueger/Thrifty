@@ -183,16 +183,22 @@ void perform_fft() {
 int mbox;
 struct GPU_FFT *fft_state;
 
+static char* gpufft_errors[] = {
+    "Unable to enable V3D. Please check your firmware is up to date.\n", // -1
+    "fft size not supported. Try between 8 and 21.\n",                   // -2
+    "Out of memory.  Try a smaller batch or increase GPU memory.\n",     // -3
+    "Unable to map Videocore peripherals into ARM memory space.\n"       // -4
+};
+
 void init_fft() {
     samples = (fc_complex*) malloc(sizeof(fc_complex) * block_size);
     int mbox = mbox_open();
 
     int ret = gpu_fft_prepare(mbox, block_size_log2, GPU_FFT_FWD, 1, &fft_state);
-    switch(ret) {
-        case -1: printf("Unable to enable V3D. Please check your firmware is up to date.\n"); exit(1);
-        case -2: printf("log2_N=%d not supported.  Try between 8 and 21.\n", block_size_log2); exit(1);
-        case -3: printf("Out of memory.  Try a smaller batch or increase GPU memory.\n"); exit(1);
-        case -4: printf("Unable to map Videocore peripherals into ARM memory space.\n"); exit(1);
+
+    if (ret <= -1 && ret >= -4) {
+        fputs(gpufft_errors[-1-ret], stderr);
+        exit(1);
     }
 }
 
