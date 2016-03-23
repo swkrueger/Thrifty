@@ -1,0 +1,5 @@
+#define VERSION_MAJOR @FASTCARD_VERSION_MAJOR@
+#define VERSION_MINOR @FASTCARD_VERSION_MINOR@
+#cmakedefine FFT_LIB "@FFT_LIB@"
+#cmakedefine USE_FFTW
+#cmakedefine USE_GPUFFT
