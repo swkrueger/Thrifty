@@ -62,6 +62,7 @@ int carrier_freq_max = 7917;  // -75 kHz
 
 char *input_file = "";
 char *output_file = NULL;
+char *wisdom_file = "fastcard.fftw_wisdom";
 
 // Buffers
 uint16_t *raw_samples;
@@ -169,7 +170,11 @@ void init_fft() {
         exit(1);
     }
 
-    // TODO: load wisdom
+    int r = fftwf_import_wisdom_from_filename(wisdom_file);
+    if (r == 0) {
+        fprintf(stderr, "failed to import wisdom file\n");
+    }
+
     // TODO: configure threading
     
     fft_plan = fftwf_plan_dft_1d(
@@ -184,7 +189,10 @@ void init_fft() {
         exit(1);
     }
 
-    // TODO: save wisdom
+    r = fftwf_export_wisdom_to_filename(wisdom_file);
+    if (r == 0) {
+        fprintf(stderr, "failed to export wisdom file\n");
+    }
 }
 
 void free_fft() {
