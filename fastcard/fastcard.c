@@ -311,6 +311,8 @@ static struct argp_option options[] = {
         "Output detections to file (blank or '-' for stdout)", 0},
     {"carrier", 'c', "<min>-<max>", 0,
         "Window of frequency bins used for carrier detection.", 1},
+    {"threshold", 't', "<constant>c<snr>s", 0,
+        "Carrier detection theshold.", 1},
     {0, 0, 0, 0, 0, 0}
 };
 
@@ -319,11 +321,56 @@ static bool parse_carrier_str(char *arg) {
 
     if (r == 1) {
         carrier_freq_max = carrier_freq_min;
-    } else if (r == 0) {
-        fprintf(stderr, "argument '--carrier' contains an invalid value.");
+    } else if (r != 2) {
+        fprintf(stderr, "Argument '--carrier' contains an invalid value.\n");
         return false;
     }
     
+    return true;
+}
+
+static bool parse_theshold_str(char *arg) {
+    float f;
+    int n;
+    
+    bool got_constant = false;
+    bool got_snr = false;
+
+    threshold_constant = 0;
+    threshold_snr = 0;
+
+    while (sscanf(arg, "%f%n", &f, &n) == 1) {
+        arg += n;
+        switch (*arg) {
+            case 'c':
+                arg += 1;
+            case '\0':
+                if (got_constant) {
+                    fprintf(stderr, "Argument '--threshold' contains more than "
+                                    "one value for constant.\n");
+                    return false;
+                }
+                threshold_constant = f;
+                got_constant = true;
+                break;
+            case 's':
+                if (got_snr) {
+                    fprintf(stderr, "Argument '--threshold' contains more than "
+                                    "one value for SNR.\n");
+                    return false;
+                }
+                threshold_snr = f;
+                arg +=1;
+                got_snr = true;
+                break;
+        }
+    }
+
+    if (*arg != '\0') {
+        fprintf(stderr, "Argument '--threshold' contains an invalid value.\n");
+        return false;
+    }
+
     return true;
 }
 
@@ -334,6 +381,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
     case 'o': output_file = arg; break;
     case 'c':
         if (!parse_carrier_str(arg)) argp_usage(state);
+        break;
+    case 't':
+        if (!parse_theshold_str(arg)) argp_usage(state);
         break;
     // We don't take any arguments
     case ARGP_KEY_ARG: argp_usage(state); break;
@@ -378,7 +428,10 @@ int main(int argc, char **argv) {
 
     init_buffers();
 
-    printf("carrier bin window: min = %d; max = %d\n", carrier_freq_min, carrier_freq_max);
+    fprintf(stderr, "carrier bin window: min = %d; max = %d\n",
+            carrier_freq_min, carrier_freq_max);
+    fprintf(stderr, "threshold: constant = %.3f; snr = %.3f\n",
+            threshold_constant, threshold_snr);
 
     carrier_detection_t d;
 
