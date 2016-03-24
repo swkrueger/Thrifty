@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <complex.h>
+#include <sys/time.h>
+#include <time.h>
 
 #include <error.h>
 #include <argp.h>
@@ -302,7 +304,7 @@ void base64_encode() {
 }
 
 /* Parse arguments */
-const char *argp_program_version = "fastcard 0.1";
+const char *argp_program_version = "fastcard " VERSION_STRING;
 static char doc[] = "FastCarD: Fast Carrier Detection";
 static struct argp_option options[] = {
     {"input",  'i', "<FILE>", 0,
@@ -430,8 +432,22 @@ int main(int argc, char **argv) {
 
     fprintf(stderr, "carrier bin window: min = %d; max = %d\n",
             carrier_freq_min, carrier_freq_max);
-    fprintf(stderr, "threshold: constant = %.3f; snr = %.3f\n",
+    fprintf(stderr, "threshold: constant = %g; snr = %g\n",
             threshold_constant, threshold_snr);
+
+    if (out != NULL) {
+        fprintf(out,
+                "# arguments: { carrier_bin: '%d-%d', threshold: '%gc+%gs', "
+                "block_size: %d, history_size: %d }\n",
+                carrier_freq_min, carrier_freq_max,
+                threshold_constant, threshold_snr,
+                block_size, history_size);
+        fprintf(out, "# tool: 'fastcard " VERSION_STRING "'\n");
+
+        struct timeval tv;
+        gettimeofday(&tv,NULL);
+        fprintf(out, "# start_time: %ld.%ld\n", tv.tv_sec, tv.tv_usec);
+    }
 
     carrier_detection_t d;
 
