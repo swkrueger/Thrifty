@@ -104,6 +104,21 @@ void init_buffers() {
 
     init_fft();
 
+    // normalize carrier_freq_{min,max}
+    if (carrier_freq_min < 0) {
+        carrier_freq_min = block_size + carrier_freq_min;
+    }
+    if (carrier_freq_max < 0) {
+        carrier_freq_max = block_size + carrier_freq_max;
+    }
+    if (carrier_freq_max < carrier_freq_min) {
+        int t = carrier_freq_max;
+        carrier_freq_max = carrier_freq_min;
+        carrier_freq_min = t;
+    }
+    // TODO: min < 0 && max > 0 will break (e.g. -1-5 -> 5-8193)
+    // TODO: check that carrier_freq is in range (< block_size)
+
     generate_lut();
 }
 
@@ -294,18 +309,36 @@ static struct argp_option options[] = {
         "Input file (blank or omit for stdin)", 0},
     {"output", 'o', "<FILE>", 0,
         "Output detections to file (blank or '-' for stdout)", 0},
+    {"carrier", 'c', "<min>-<max>", 0,
+        "Window of frequency bins used for carrier detection.", 1},
     {0, 0, 0, 0, 0, 0}
 };
+
+static bool parse_carrier_str(char *arg) {
+    int r = sscanf(arg, "%d-%d", &carrier_freq_min, &carrier_freq_max);
+
+    if (r == 1) {
+        carrier_freq_max = carrier_freq_min;
+    } else if (r == 0) {
+        fprintf(stderr, "argument '--carrier' contains an invalid value.");
+        return false;
+    }
+    
+    return true;
+}
 
 /* Parse a single option. */
 static error_t parse_opt (int key, char *arg, struct argp_state *state) {
   switch (key) {
     case 'i': input_file = arg; break;
     case 'o': output_file = arg; break;
+    case 'c':
+        if (!parse_carrier_str(arg)) argp_usage(state);
+        break;
     // We don't take any arguments
     case ARGP_KEY_ARG: argp_usage(state); break;
     default:
-      return ARGP_ERR_UNKNOWN;
+        return ARGP_ERR_UNKNOWN;
     }
   return 0;
 }
@@ -344,6 +377,8 @@ int main(int argc, char **argv) {
     }
 
     init_buffers();
+
+    printf("carrier bin window: min = %d; max = %d\n", carrier_freq_min, carrier_freq_max);
 
     carrier_detection_t d;
 
