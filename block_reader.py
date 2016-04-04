@@ -80,6 +80,8 @@ def serialized_block_reader(stream, settings):
         line = stream.readline()
         if line == '':
             break
+        if line[0] == '#':
+            continue
         idx, s = line.rstrip('\n').split(' ')
         raw = np.fromstring(base64.b64decode(s), dtype='uint8')
         d = raw_to_complex(raw)

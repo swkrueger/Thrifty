@@ -33,10 +33,10 @@ data_len = 1<<int(np.ceil(np.log2(min_data_len)))
 block_len = data_len - history_len
 
 # Carrier sync settings
-# carrier_freq_min = -30e3
-# carrier_freq_max = -25e3
-carrier_freq_min = -76e3
-carrier_freq_max = -80e3
+carrier_freq_min = -30e3
+carrier_freq_max = -25e3
+# carrier_freq_min = -76e3
+# carrier_freq_max = -80e3
 
 carrier_noise_window_size = 10 # blocks
 carrier_threshold = {

@@ -71,7 +71,7 @@ def main(args, settings):
                 sys.stderr.write(peak_summarize(p, bi) + '\n')
                 abs_idx = settings.block_len * bi + p.peak_idx
                 # TODO: print time.time() of carrier detection
-                print time.time(), abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0]), p.offset, p.noise, c.noise
+                print abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0]), p.offset, p.noise, c.noise
 
                 if args.plot in ['always', 'corr_peak']:
                     plt.plot(np.abs(corr))
