@@ -38,14 +38,24 @@ def sinc_fit(k, a, t):
 
 
 def testInterpolate():
-    carrier_freq = 80.100e3 # 80029.296875 # 80.109e3
+    carrier_freq = -80.060e3 # 80029.296875 # 80.109e3
     s = Settings()
     N, W = 8192, 2085
     s.data_len = N
     s.code_len = W
 
+    # code_samples = np.load(open('../template.npy', 'r'))
+    # code_samples += 1
+    # code_samples /= 2
+    # plt.plot(code_samples)
+    # plt.show()
+    
     c = np.exp(2j * np.pi * carrier_freq * np.arange(W) / s.sample_rate)
+    # c = code_samples * c
+    # phase_offset = np.exp(2j * np.pi / 3.333)
+    # c *= phase_offset
     y = np.concatenate([c, np.zeros(N - len(c))])
+    # y += np.random.normal(0, 0.5, len(y))
     
     fft = np.fft.fft(y)
     fft_mag = np.abs(fft)
@@ -132,7 +142,7 @@ def testInterpolate():
     n = 3
     xdata = np.array(np.arange(-n, n+1))
     ydata = fft_mag[peak + xdata]
-    p0 = (fft_mag[peak], n)
+    p0 = (fft_mag[peak], 0)
     print p0
     popt, pcov = curve_fit(dirichlet_fit, xdata, ydata, p0=p0)
     # bounds=([fft_mag[peak]*0.6, -0.5], [fft_mag[peak]*1.6, 0.5])
@@ -142,6 +152,13 @@ def testInterpolate():
     print 'fit offset', carrier_freq, peak_freq, fit_offset * 2.2e6 / N, adjusted_freq, adjusted_freq - carrier_freq
     perr = np.sqrt(np.diag(pcov))
     print 'estimated fit error (1 std dev)', perr
+
+    # Time-domain fit shift
+    freq_shift = np.exp(-2j * np.pi * fit_offset * np.fft.fftfreq(N))
+    y5 = y * freq_shift
+    fft5 = np.fft.fft(y5)
+    # fft5 = fft5 / np.abs(fft5[peak]) * np.abs(fft[peak]) # scale
+    fft_mag5 = np.abs(fft5)
 
     # Check energy
     energy_time = np.sum(np.abs(y)**2)
@@ -156,10 +173,13 @@ def testInterpolate():
     # print d
 
     plt.plot(fft_mag, '.-', label="before shift")
+    plt.plot(np.real(fft), '.-', label="real")
+    plt.plot(np.imag(fft), '.-', label="imag")
     t_offset = np.arange(len(fft_mag)) + offset
     plt.plot(t_offset, fft_mag2, '.-', label="after shift (mean)")
     plt.plot(t_offset, fft_mag3, '.-', label="after shift (time)")
     plt.plot(t_offset, fft_mag4, '.-', label="after shift (lin interpol)")
+    plt.plot(t_offset, fft_mag5, '.-', label="after shift fit_offset (time)")
     plt.plot(rel + peak + fit_offset, np.abs(d) * fit_ampl, '.-', label="dirichlet")
     # plt.plot(rel + peak + offset, np.abs(d * fft_mag[peak]), '.-', label="dirichlet")
     plt.plot([peak+offset, peak+offset], [0, fft_mag[peak]])

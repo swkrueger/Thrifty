@@ -17,7 +17,7 @@ class CarrierSyncResults:
         f = np.fft.fftfreq(len(s.fft), 1.0/settings.sample_rate)
         ff = np.fft.fftshift(f) / 1000
         fft_mag = np.abs(s.fft)
-        plt.plot(ff, np.fft.fftshift(fft_mag), label="FFT (unshifted)")
+        plt.plot(ff, np.fft.fftshift(fft_mag), marker='.', label="FFT (unshifted)")
 
         # plt.hlines(s.noise, ff[0], ff[-1], label='Noise')
         plt.plot([ff[0], ff[-1]], [s.noise, s.noise], label="Noise")
@@ -33,7 +33,7 @@ class CarrierSyncResults:
 
         if s.detected:
             mag = np.abs(s.shifted_fft)
-            plt.plot(ff, np.fft.fftshift(mag), label="FFT (shifted)")
+            plt.plot(ff, np.fft.fftshift(mag), marker='.', label="FFT (shifted)")
             plt.annotate('(%.3f kHz, %.0f)' % (0, mag[0]), xy=(0, mag[0]))
 
         plt.legend(loc='best')

@@ -15,6 +15,7 @@ import carrier_sync
 import despread
 import argparse
 import block_reader
+import carrier_fit
 
 def peak_summarizer(settings):
     prev_corr_t = [0]
@@ -51,10 +52,13 @@ def main(args, settings):
         # plt.show()
 
         c = csync(b)
+        c.data = b
         c.idx = bi
 
         if c.detected:
             sys.stderr.write(c.summary(settings) + '\n')
+
+            carrier_fit.fit(c, settings)
 
             if args.plot in ['always', 'carrier_detect']:
                 c.plot(settings)
@@ -70,8 +74,9 @@ def main(args, settings):
             if p.detected:
                 sys.stderr.write(peak_summarize(p, bi) + '\n')
                 abs_idx = settings.block_len * bi + p.peak_idx
+
                 # TODO: print time.time() of carrier detection
-                print abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0]), p.offset, p.noise, c.noise
+                print abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0]), p.offset, p.noise, c.noise, c.offset
 
                 if args.plot in ['always', 'corr_peak']:
                     plt.plot(np.abs(corr))
