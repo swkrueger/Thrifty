@@ -28,10 +28,11 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
 # the version number
 set (FASTCARD_VERSION_MAJOR 0)
-set (FASTCARD_VERSION_MINOR 1)
+set (FASTCARD_VERSION_MINOR 2)
 
-# use C99
-add_definitions(-std=c99)
+# use C99 with GNU extensions
+# GNU extensions are required for clock_gettime
+add_definitions(-std=gnu99)
 
 # select the release build type by default to get optimization flags
 if(NOT CMAKE_BUILD_TYPE)
@@ -70,6 +71,9 @@ set(FFT_LIB ${FFT_LIB_DEFAULT} CACHE STRING "FFT library that should be used")
 set(FFT_LIB_VALUES "FFTW;GPU_FFT")
 set_property(CACHE FFT_LIB PROPERTY STRINGS ${FFT_LIB_VALUES})
 message(STATUS "FFT library that will be used: ${FFT_LIB}")
+
+# Link to "real time" shared library for clock_gettime
+set (EXTRA_LIBS ${EXTRA_LIBS} rt)
 
 if (${FFT_LIB} MATCHES "FFTW")
     set (USE_FFTW ON)

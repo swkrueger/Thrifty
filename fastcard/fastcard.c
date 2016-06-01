@@ -453,24 +453,30 @@ int main(int argc, char **argv) {
         fprintf(out, "# tool: 'fastcard " VERSION_STRING "'\n");
 
         struct timeval tv;
-        gettimeofday(&tv,NULL);
-        fprintf(out, "# start_time: %ld.%ld\n", tv.tv_sec, tv.tv_usec);
+        gettimeofday(&tv, NULL);
+        fprintf(out, "# start_time: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
     }
 
     carrier_detection_t d;
+	struct timespec ts;
 
     int i = 0;
     while (read_next_block(in)) {
         convert_raw_to_complex();
         perform_fft();
         if (detect_carrier(&d)) {
+            // Get timestamp
+            // This might impact performance negatively
+            // (https://stackoverflow.com/questions/6498972/)
+            clock_gettime(CLOCK_MONOTONIC, &ts);
+
             fprintf(stderr,
                     "block #%d: mag[%d] = %.1f (thresh = %.1f)\n",
                     i, d.argmax, d.max, d.threshold);
 
             if (out != NULL) {
                 base64_encode();
-                fprintf(out, "%d %s\n", i, base64);
+                fprintf(out, "%ld.%09ld %d %s\n", ts.tv_sec, ts.tv_nsec, i, base64);
             }
         }
         ++i;
