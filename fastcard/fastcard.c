@@ -460,7 +460,7 @@ int main(int argc, char **argv) {
     carrier_detection_t d;
     struct timeval ts;
 
-    int i = 0;
+    unsigned long i = 0;
     while (read_next_block(in)) {
         convert_raw_to_complex();
         perform_fft();
@@ -471,12 +471,13 @@ int main(int argc, char **argv) {
             gettimeofday(&ts, NULL);
 
             fprintf(stderr,
-                    "block #%d: mag[%d] = %.1f (thresh = %.1f)\n",
+                    "block #%lu: mag[%d] = %.1f (thresh = %.1f)\n",
                     i, d.argmax, d.max, d.threshold);
 
             if (out != NULL) {
                 base64_encode();
-                fprintf(out, "%ld.%06ld %d %s\n", ts.tv_sec, ts.tv_usec, i, base64);
+                fprintf(out, "%ld.%06ld %lu %s\n",
+                        ts.tv_sec, ts.tv_usec, i, base64);
             }
         }
         ++i;
