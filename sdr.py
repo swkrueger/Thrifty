@@ -37,16 +37,15 @@ def peak_summarizer(settings):
 def main(args, settings):
     if args.input_format == 'raw':
         blocks = block_reader.data_reader(args.input, settings)
-        enumerated_blocks = enumerate(blocks)
     elif args.input_format == 'serialized_blocks':
-        enumerated_blocks = block_reader.serialized_block_reader(args.input, settings)
+        blocks = block_reader.serialized_block_reader(args.input, settings)
 
     csync = carrier_sync.carrier_syncer(settings)
     despreader = despread.despreader(settings)
     peak_detect = despread.peak_detector(settings)
     peak_summarize = peak_summarizer(settings)
 
-    for bi, b in enumerated_blocks:
+    for timestamp, bi, b in blocks:
         # plt.plot(b.real)
         # plt.plot(b.imag)
         # plt.show()
@@ -76,7 +75,7 @@ def main(args, settings):
                 abs_idx = settings.block_len * bi + p.peak_idx
 
                 # TODO: print time.time() of carrier detection
-                print abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0]), p.offset, p.noise, c.noise, c.offset
+                print "%.06f" % timestamp, abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0]), p.offset, p.noise, c.noise, c.offset
 
                 if args.plot in ['always', 'corr_peak']:
                     plt.plot(np.abs(corr))

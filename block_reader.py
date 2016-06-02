@@ -2,6 +2,7 @@
 
 import numpy as np
 import base64
+import time
 
 def raw_chunk_reader(stream, chunk_size):
     while True:
@@ -56,12 +57,12 @@ def data_reader(stream, settings):
     assert(settings.data_len == block_len + history_len)
 
     data = np.zeros(settings.data_len)
-    for b in raw_block_reader(stream, block_len * 2):
+    for bi, b in enumerate(raw_block_reader(stream, block_len * 2)):
         c = raw_to_complex(b)
         assert(len(c) == block_len)
         data = np.concatenate([data[-history_len:], c])
         assert(len(data) == settings.data_len)
-        yield data
+        yield time.time(), bi, data
 
 
 def full_data_reader(stream, settings):
@@ -82,9 +83,9 @@ def serialized_block_reader(stream, settings):
             break
         if line[0] == '#':
             continue
-        idx, s = line.rstrip('\n').split(' ')
+        t, idx, s = line.rstrip('\n').split(' ')
         raw = np.fromstring(base64.b64decode(s), dtype='uint8')
         d = raw_to_complex(raw)
         assert(len(d) == settings.data_len)
-        yield int(idx), d
+        yield float(t), int(idx), d
 
