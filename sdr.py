@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 """
-The main CLI interface for the SDR.
-TODO: better description.
+Estimates ToA from time-domain samples.
 """
 
 import sys
@@ -16,6 +15,8 @@ import despread
 import argparse
 import block_reader
 import carrier_fit
+
+from utility import freq_range_parser
 
 def peak_summarizer(settings):
     prev_corr_t = [0]
@@ -35,9 +36,9 @@ def peak_summarizer(settings):
     return summarize
 
 def main(args, settings):
-    if args.input_format == 'raw':
+    if args.raw == True:
         blocks = block_reader.data_reader(args.input, settings)
-    elif args.input_format == 'serialized_blocks':
+    else:
         blocks = block_reader.serialized_block_reader(args.input, settings)
 
     csync = carrier_sync.carrier_syncer(settings)
@@ -63,10 +64,6 @@ def main(args, settings):
                 c.plot(settings)
                 plt.show()
 
-            if args.carrier_detect_output != None:
-                s = block_reader.serialize_block(b)
-                print >>args.carrier_detect_output, bi, s
-
             corr = despreader(c.shifted_fft)
             p = peak_detect(corr)
 
@@ -74,7 +71,6 @@ def main(args, settings):
                 sys.stderr.write(peak_summarize(p, bi) + '\n')
                 abs_idx = settings.block_len * bi + p.peak_idx
 
-                # TODO: print time.time() of carrier detection
                 print "%.06f" % timestamp, abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0]), p.offset, p.noise, c.noise, c.offset
 
                 if args.plot in ['always', 'corr_peak']:
@@ -89,39 +85,41 @@ if __name__ == '__main__':
             description=__doc__,
             formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('input', type=argparse.FileType('rb'),
-                        default='-',
+    parser.add_argument('input',
+                        type=argparse.FileType('rb'), default='-',
                         help='input data (\'-\' streams from stdin)')
-    parser.add_argument('--input_format', dest='input_format',
-                        choices=['raw', 'serialized_blocks'],
-                        default='raw',
-                        help='format of the input data')
+    parser.add_argument('--raw', dest='raw', action='store_true',
+                        help='input data is raw binary data')
+
     parser.add_argument('-s', dest='sample_rate', type=float,
                         default=settings.sample_rate,
                         help='overwrite sample rate')
     parser.add_argument('-c', dest='chip_rate', type=float,
                         default=settings.chip_rate,
                         help='overwrite chip rate')
-    parser.add_argument('--carrier_freq_min', dest='carrier_freq_min',
-                        type=float, default=settings.carrier_freq_min,
-                        help='overwrite minimum carrier frequency')
-    parser.add_argument('--carrier_freq_max', dest='carrier_freq_max',
-                        type=float, default=settings.carrier_freq_max,
-                        help='overwrite maximum carrier frequency')
+
+    parser.add_argument('-w', '--carrier-window', dest='carrier_window',
+                        action=freq_range_parser.FreqRangeAction,
+                        help='carrier detection window (e.g. "10-20 kHz")')
+
     parser.add_argument('-p', dest='plot',
                         choices=['always', 'carrier_detect', 'corr_peak', 'never'],
                         default='never',
                         help='when a plot should be triggered')
-    parser.add_argument('--export_on_carrier_detect', dest='carrier_detect_output',
-                        type=argparse.FileType('w'),
-                        default=None,
-                        help='(temporary command) write serialized blocks on carrier detect')
 
     args = parser.parse_args()
+
+    # default carrier window
+    if args.carrier_window == None:
+        args.carrier_window = freq_range_parser.parse(settings.carrier_window)
+
     settings.sample_rate = args.sample_rate
     settings.chip_rate = args.chip_rate
-    settings.carrier_freq_min = args.carrier_freq_min
-    settings.carrier_freq_max = args.carrier_freq_max
+
+    # normalize carrier window
+    bin_freq = settings.sample_rate / settings.data_len
+    settings.carrier_window_norm = freq_range_parser.normalize(
+            args.carrier_window, bin_freq)
 
     main(args, settings)
 

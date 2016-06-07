@@ -30,9 +30,7 @@ def dirichlet_kernel(k, settings):
 
 def find_peak(fft, settings):
     """Return index of peak within window [min_idx,max_idx)."""
-    normalise = len(fft) / settings.sample_rate
-    min_idx = int(settings.carrier_freq_min * normalise)
-    max_idx = int(settings.carrier_freq_max * normalise)
+    min_idx, max_idx = settings.carrier_window_norm
 
     if min_idx > max_idx:
         min_idx, max_idx = max_idx, min_idx
