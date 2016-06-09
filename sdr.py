@@ -11,6 +11,7 @@ import numpy as np
 
 import settings
 import carrier_sync
+import data
 import despread
 import argparse
 import block_reader
@@ -60,6 +61,8 @@ def main(args, settings):
 
             carrier_fit.fit(c, settings)
 
+            cr = data.CarrierSyncResult(c.peak, c.offset, np.abs(c.shifted_fft[0]), c.noise)
+
             if args.plot in ['always', 'carrier_detect']:
                 c.plot(settings)
                 plt.show()
@@ -67,11 +70,16 @@ def main(args, settings):
             corr = despreader(c.shifted_fft)
             p = peak_detect(corr)
 
+            pr = data.ToaDetectionResult(p.peak_idx, p.offset, p.peak_mag, p.noise)
+
             if p.detected:
                 sys.stderr.write(peak_summarize(p, bi) + '\n')
                 abs_idx = settings.block_len * bi + p.peak_idx
 
-                print "%.06f" % timestamp, abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0]), p.offset, p.noise, c.noise, c.offset
+                det = data.DetectionResult(timestamp, bi, cr, pr)
+                print det.serialize()
+
+                # print "%.06f" % timestamp, abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0]), p.offset, p.noise, c.noise, c.offset
 
                 if args.plot in ['always', 'corr_peak']:
                     plt.plot(np.abs(corr))
