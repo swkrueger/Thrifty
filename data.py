@@ -16,7 +16,7 @@ CarrierSyncResult = namedtuple('CarrierSyncResult', [
     'energy',
     'noise'])
 
-# TODO: s/toa/? peak?
+# TODO: s/toa/? soa? peak?
 ToaDetectionResult = namedtuple('ToaDetectionResult', [
     'sample',
     'offset',
@@ -26,26 +26,28 @@ ToaDetectionResult = namedtuple('ToaDetectionResult', [
 
 class DetectionResult:
     # (timestamp, block, toa_detection, carrier_sync)
-    def __init__(self, timestamp, block, carrier, toa, rxid=None, txid=None):
+    def __init__(self, timestamp, block, soa, carrier, toa, rxid=None, txid=None):
         '''
         Args:
             timestamp: approximate time at which block was captured
             block: block index
+            soa: sample-of-arrival relative to first sample of receiver
             carrier: instance of CarrierSyncResult
             toa: instance of ToaDetectionResult
         '''
         self.timestamp = timestamp
         self.block = block
+        self.soa = soa
         self.carrier = carrier
-        self.toa = toa
+        self.toa = toa # TODO: s/toa/pulse|peak|burst -- pulse 
         self.rxid = rxid
         self.txid = txid
 
 
     def serialize(self):
         toa, c = self.toa, self.carrier
-        s = '{t:.6f} {b} {ts} {to} {te} {tn} {cb} {co} {ce} {cn}'.format(
-                t=self.timestamp, b=self.block,
+        s = '{t:.6f} {b} {s} {ts} {to} {te} {tn} {cb} {co} {ce} {cn}'.format(
+                t=self.timestamp, b=self.block, s=self.soa,
                 ts=toa.sample, to=toa.offset, te=toa.energy, tn=toa.noise,
                 cb=c.bin, co=c.offset, ce=c.energy, cn=c.noise)
 
@@ -66,13 +68,13 @@ class DetectionResult:
         rxid = int(fields.pop(0)) if with_rxid else None
         txid = int(fields.pop(0)) if with_txid else None
 
-        t, b, ts, to, te, tn, cb, co, ce, cn = map(float, fields)
+        t, b, s, ts, to, te, tn, cb, co, ce, cn = map(float, fields)
 
-        timestamp, block = t, int(b)
+        timestamp, block, soa = t, int(b), float(s)
         toa = ToaDetectionResult(sample=int(ts), offset=to, energy=te, noise=tn)
         carrier = CarrierSyncResult(bin=int(cb), offset=co, energy=ce, noise=cn)
 
-        return DetectionResult(timestamp, block, carrier, toa, rxid, txid)
+        return DetectionResult(timestamp, block, soa, carrier, toa, rxid, txid)
 
 
 def _load_toads(stream, with_rxid=True, with_txid=True):
@@ -100,15 +102,15 @@ def load_toads(stream):
 def toads_array(toads, with_ids=True):
     '''Create nparray from ToaDetectionResult serializations'''
     data = [(i, t.rxid if with_ids else -1, t.txid if with_ids else -1,
-        t.timestamp, t.block,
+        t.timestamp, t.block, t.soa,
         t.toa.sample, t.toa.offset,
         t.toa.energy, t.toa.noise,
         t.carrier.bin, t.carrier.offset,
         t.carrier.energy, t.carrier.noise)
         for i, t in enumerate(toads)]
     return np.array(data,
-        dtype=[('idx', i4), ('rxid', 'i4'), ('txid', 'i4'),
-            ('timestamp', 'f8'), ('block', 'i4'),
+        dtype=[('idx', 'i4'), ('rxid', 'i4'), ('txid', 'i4'),
+            ('timestamp', 'f8'), ('block', 'i4'), ('soa', 'f8'),
             ('sample', 'i4'), ('offset', 'f8'),
             ('energy', 'f8'), ('noise', 'f8'),
             ('carrier_bin', 'i4'), ('carrier_offset', 'f8'),

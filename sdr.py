@@ -74,9 +74,9 @@ def main(args, settings):
 
             if p.detected:
                 sys.stderr.write(peak_summarize(p, bi) + '\n')
-                abs_idx = settings.block_len * bi + p.peak_idx
+                soa = settings.block_len * bi + p.peak_idx + p.offset
 
-                det = data.DetectionResult(timestamp, bi, cr, pr)
+                det = data.DetectionResult(timestamp, bi, soa, cr, pr)
                 print det.serialize()
 
                 # print "%.06f" % timestamp, abs_idx, p.peak_mag, c.peak, np.abs(c.shifted_fft[0]), p.offset, p.noise, c.noise, c.offset

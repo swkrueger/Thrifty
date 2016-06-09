@@ -17,7 +17,7 @@ def match(toads, window, min_match=2):
         min_match: minimum number of receivers that should receive a
                    transmission for it to be considered a match
     '''
-    max_rxids = max([x.rxid for x in toads])
+    num_rx = max([x.rxid for x in toads]) + 1
     N = len(toads)
 
     killed = [False] * len(toads)
@@ -28,7 +28,7 @@ def match(toads, window, min_match=2):
         if killed[i]:
             continue
 
-        match = [-1] * (max_rxids + 1)
+        match = [-1] * num_rx
         match[toads[i].rxid] = i
 
         for j in range(i + 1, N):
@@ -65,7 +65,7 @@ def load_matches(f):
     for line in f:
         if len(line) == 0 or line[0] == '#':
             continue
-        match = line.split()
+        match = map(int, line.split())
         matches.append(match)
     return matches
 

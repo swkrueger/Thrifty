@@ -27,7 +27,7 @@ if __name__ == '__main__':
             description=__doc__,
             formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('--output', type=argparse.FileType('wb'),
+    parser.add_argument('-o', '--output', type=argparse.FileType('wb'),
             default='-', help='output file (default is stdout)')
     parser.add_argument('filename', type=str,
             nargs='+', help='peakd file')
