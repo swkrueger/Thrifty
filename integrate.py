@@ -26,7 +26,7 @@ def identify(freqs):
     bin0 = np.min(freqs)
     cnts = np.bincount(freqs - bin0)
     avg = np.mean(cnts)
-    # print cnts
+    print cnts
 
     transitions = []
     below_avg = False

@@ -76,6 +76,12 @@ def sync(soa, deg=2, plot=False):
             np.std(residuals) * s2m,
             np.max(np.abs(residuals)) * s2m)
 
+    # sdoa = soa2 - soa1
+    # dsdoa = np.concatenate([[0], np.diff(sdoa)])
+    # dsoa1 = np.concatenate([[0, 0], np.diff(np.diff(soa1))])
+    # dsoa2 = np.concatenate([[0, 0], np.diff(np.diff(soa2))])
+    # print np.column_stack([soa1, soa2, dsoa1, dsoa2, dsdoa, residuals*1000]).astype('int')
+
     if plot:
         plt.figure(figsize=(11,5))
         plt.subplot(1,2,1)
@@ -89,7 +95,7 @@ def sync(soa, deg=2, plot=False):
         plt.hist(residuals, 20)
         plt.title('Histogram: residuals')
         plt.grid()
-        # plt.savefig(basename + '_tx1.pdf', format='pdf')
+        # plt.savefig('clock_sync_{}_captured.pdf'.format(basename, int(soa1[0])), format='pdf')
         plt.show()
 
 if __name__ == '__main__':

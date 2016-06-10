@@ -9,11 +9,12 @@ from collections import deque, namedtuple
 
 def despreader(settings):
     code = settings.code_samples
+    assert(settings.history_len >= len(code))
     N = settings.data_len - len(code)
     template = np.concatenate([code, np.zeros(N)])
     template_fft = np.fft.fft(template)
 
-    assert(settings.block_len + settings.peak_width == N)
+    # assert(settings.block_len + settings.peak_width == N)
 
     def despread(fft):
         F = fft * template_fft.conjugate()
@@ -42,6 +43,8 @@ PeakDetectorResults = namedtuple(
 
 def peak_detector(settings):
     means = deque([], 10)
+    padding_len = settings.history_len - settings.code_len
+    half_pad = int(padding_len / 2)
 
     def detect(d):
         mag = np.abs(d)
@@ -52,7 +55,7 @@ def peak_detector(settings):
         t = settings.detector_threshold
         tc, tn, ts = t['constant'], t['snr'], t['stddev']
         threshold = tc + tn * noise + ts * stddev
-        peak_idx = np.argmax(mag)
+        peak_idx = np.argmax(mag[padding_len-half_pad:len(mag)-half_pad])
         peak_mag = mag[peak_idx]
         # peak_mag = np.sum(mag[peak_idx-1:peak_idx+2]) / (1+0.9+0.9)
 

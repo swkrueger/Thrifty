@@ -248,8 +248,8 @@ def generate_code_symbols(sample_rate, chip_rate):
     c = code[code_indices] * 2 - 1
 
     # plot_signal(c)
-    print "Code: {} symbols @ {:.6f} MHz = {:.3f} ms ; {} samples @ {:.6f} Msps".format(
-            len(code), chip_rate/1e6, len(code)/chip_rate*1e3, N_code, sample_rate/1e6)
+    # print "Code: {} symbols @ {:.6f} MHz = {:.3f} ms ; {} samples @ {:.6f} Msps".format(
+    #         len(code), chip_rate/1e6, len(code)/chip_rate*1e3, N_code, sample_rate/1e6)
 
     return c
 

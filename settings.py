@@ -20,20 +20,23 @@ code_len = len(code_samples)
 chip_rate = 1.08e6
 sps = sample_rate / chip_rate
 # peak_width = int(2 * np.ceil(sps))
-peak_width = 0 # temp
+# peak_width = 0 # temp
 
 # Block reader settings
 # - block_len >= code_len
 # - history = block_len + peak_width
 # - data_len = history + block_len = 2*block_len + peak_width
 # - data_len should be a power of two
-history_len = code_len + peak_width
+# history_len = code_len + peak_width
+
+history_len = 2085
+
 min_data_len = code_len + history_len
 data_len = 1<<int(np.ceil(np.log2(min_data_len)))
 block_len = data_len - history_len
 
 # Carrier sync settings
-carrier_window = '-30e3 - -25e3 Hz'
+carrier_window = '-30 - -25 kHz'
 # carrier_freq_min = -30e3
 # carrier_freq_max = -25e3
 # carrier_freq_min = -76e3
