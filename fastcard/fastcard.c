@@ -230,6 +230,12 @@ void init_fft() {
     if (r == 0) {
         fprintf(stderr, "failed to export wisdom file\n");
     }
+
+    if (!silent) {
+        info_out("FFTW plan:\n");
+        fftwf_fprint_plan(fft_plan, info);
+        info_out("\n\n");
+    }
 }
 
 void free_fft() {
