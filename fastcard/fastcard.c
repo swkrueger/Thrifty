@@ -23,6 +23,7 @@
 #include <complex.h>
 #include <sys/time.h>
 #include <time.h>
+#include <math.h>
 
 #include <error.h>
 #include <argp.h>
@@ -51,9 +52,8 @@
 typedef float complex fc_complex;
 
 // Settings
-#define block_size_log2 13
-int block_size = 1<<block_size_log2; // 8196
-int history_size = 2085;
+size_t block_size = 8192;        // 2^13
+size_t history_size = 2090;
 
 float threshold_constant = 12;
 float threshold_snr = 0;
@@ -92,7 +92,7 @@ void free_fft();
 
 void init_buffers() {
     raw_samples = (uint16_t*) malloc(block_size * sizeof(uint16_t));
-    for (int i = 0; i < block_size; ++i) raw_samples[i] = 127;
+    for (size_t i = 0; i < block_size; ++i) raw_samples[i] = 127;
 
     // size_t alignment = volk_get_alignment();
     // fft_mag = (fc_complex*) volk_malloc(block_size * sizeof(fc_complex), alignment);
@@ -152,7 +152,7 @@ bool read_next_block(FILE *f) {
 }
 
 void convert_raw_to_complex() {
-    for (int i = 0; i < block_size; ++i) {
+    for (size_t i = 0; i < block_size; ++i) {
         samples[i] = lut[raw_samples[i]];
     }
 }
@@ -327,6 +327,12 @@ static struct argp_option options[] = {
         "[default: no window]", 1},
     {"threshold", 't', "<constant>c<snr>s", 0,
         "Carrier detection theshold [default: 12c0s]", 1},
+    {"block-size", 'b', "<size>", 0,
+        "Length of fixed-sized blocks, which should be a power of two"
+        "[default: 8196]", 2},
+    {"history", 'h', "<size>", 0,
+        "The number of samples at the beginning of a block that should be "
+        "copied from the end of the previous block [default: 2090]", 2},
     {0, 0, 0, 0, 0, 0}
 };
 
@@ -390,21 +396,31 @@ static bool parse_theshold_str(char *arg) {
 
 /* Parse a single option. */
 static error_t parse_opt (int key, char *arg, struct argp_state *state) {
-  switch (key) {
-    case 'i': input_file = arg; break;
-    case 'o': output_file = arg; break;
-    case 'c':
-        if (!parse_carrier_str(arg)) argp_usage(state);
-        break;
-    case 't':
-        if (!parse_theshold_str(arg)) argp_usage(state);
-        break;
-    // We don't take any arguments
-    case ARGP_KEY_ARG: argp_usage(state); break;
-    default:
-        return ARGP_ERR_UNKNOWN;
+    char* endptr;
+
+    switch (key) {
+        case 'i': input_file = arg; break;
+        case 'o': output_file = arg; break;
+        case 'c':
+            if (!parse_carrier_str(arg)) argp_usage(state);
+            break;
+        case 't':
+            if (!parse_theshold_str(arg)) argp_usage(state);
+            break;
+        case 'b':
+            block_size = strtoul(arg, &endptr, 10);
+            if (endptr == NULL || block_size < 1) argp_usage(state);
+            break;
+        case 'h':
+            history_size = strtoul(arg, &endptr, 10);
+            if (endptr == NULL || history_size < 1) argp_usage(state);
+            break;
+        // We don't take any arguments
+        case ARGP_KEY_ARG: argp_usage(state); break;
+        default:
+            return ARGP_ERR_UNKNOWN;
     }
-  return 0;
+    return 0;
 }
 
 static struct argp argp = {options, parse_opt, NULL, doc, NULL, NULL, NULL};
@@ -415,6 +431,11 @@ void parse_args(int argc, char **argv) {
 
 int main(int argc, char **argv) {
     parse_args(argc, argv);
+
+    if (history_size > block_size) {
+        fprintf(stderr, "History length cannot be larger than block size.\n");
+        exit(1);
+    }
 
     FILE* in;
     if (strlen(input_file) == 0 || strcmp(input_file, "-") == 0) {
@@ -442,6 +463,8 @@ int main(int argc, char **argv) {
 
     init_buffers();
 
+    fprintf(stderr, "block size: %zu; history length: %zu\n",
+            block_size, history_size);
     fprintf(stderr, "carrier bin window: min = %d; max = %d\n",
             carrier_freq_min, carrier_freq_max);
     fprintf(stderr, "threshold: constant = %g; snr = %g\n",
@@ -450,7 +473,7 @@ int main(int argc, char **argv) {
     if (out != NULL) {
         fprintf(out,
                 "# arguments: { carrier_bin: '%d-%d', threshold: '%gc+%gs', "
-                "block_size: %d, history_size: %d }\n",
+                "block_size: %zu, history_size: %zu }\n",
                 carrier_freq_min, carrier_freq_max,
                 threshold_constant, threshold_snr,
                 block_size, history_size);
