@@ -15,6 +15,7 @@
  **/
 
 #include <endian.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -74,6 +75,14 @@ fc_complex *fft;
 float *fft_mag;
 fc_complex lut[0x10000];
 char *base64;
+
+bool volatile keep_running = true;
+
+void signal_handler(int signo) {
+    if (signo == SIGINT) {
+        keep_running = false;
+    }
+}
 
 void generate_lut() {
     // generate lookup table for raw-to-complex conversion
@@ -485,6 +494,8 @@ int main(int argc, char **argv) {
     normalize_carrier_freq();
     init_buffers();
 
+    signal(SIGINT, signal_handler);
+
     fprintf(stderr, "block size: %zu; history length: %zu\n",
             block_size, history_size);
     fprintf(stderr, "carrier bin window: min = %d; max = %d\n",
@@ -510,7 +521,7 @@ int main(int argc, char **argv) {
     struct timeval ts;
 
     unsigned long i = 0;
-    while (read_next_block(in)) {
+    while (read_next_block(in) && keep_running) {
         convert_raw_to_complex();
         perform_fft();
         if (detect_carrier(&d)) {
