@@ -57,8 +57,8 @@ size_t history_size = 2090;
 
 float threshold_constant = 12;
 float threshold_snr = 0;
-int carrier_freq_min = 7897;  // -80 kHz
-int carrier_freq_max = 7917;  // -75 kHz
+int carrier_freq_min = 0;
+int carrier_freq_max = -1;
 
 char *input_file = "";
 char *output_file = NULL;
@@ -90,6 +90,33 @@ void generate_lut() {
 void init_fft();
 void free_fft();
 
+// normalize carrier_freq_{min,max}
+void normalize_carrier_freq() {
+    if (carrier_freq_min < 0 && carrier_freq_max >= 0) {
+        fprintf(stderr, "Carrier frequency window range not supported.\n");
+        exit(1);
+    }
+    if (carrier_freq_min < 0) {
+        carrier_freq_min = block_size + carrier_freq_min;
+    }
+    if (carrier_freq_max < 0) {
+        carrier_freq_max = block_size + carrier_freq_max;
+    }
+    if ((size_t)carrier_freq_min >= block_size
+            || (size_t)carrier_freq_max >= block_size) {
+        fprintf(stderr, "Carrier frequency window out of range.\n");
+        exit(1);
+    }
+    if (carrier_freq_max < carrier_freq_min) {
+        int t = carrier_freq_max;
+        carrier_freq_max = carrier_freq_min;
+        carrier_freq_min = t;
+    }
+    // TODO: min < 0 && max > 0 will break (e.g. -1-5 -> 5-8193)
+    // TODO: check that carrier_freq is in range (< block_size)
+
+}
+
 void init_buffers() {
     raw_samples = (uint16_t*) malloc(block_size * sizeof(uint16_t));
     for (size_t i = 0; i < block_size; ++i) raw_samples[i] = 127;
@@ -106,21 +133,6 @@ void init_buffers() {
     }
 
     init_fft();
-
-    // normalize carrier_freq_{min,max}
-    if (carrier_freq_min < 0) {
-        carrier_freq_min = block_size + carrier_freq_min;
-    }
-    if (carrier_freq_max < 0) {
-        carrier_freq_max = block_size + carrier_freq_max;
-    }
-    if (carrier_freq_max < carrier_freq_min) {
-        int t = carrier_freq_max;
-        carrier_freq_max = carrier_freq_min;
-        carrier_freq_min = t;
-    }
-    // TODO: min < 0 && max > 0 will break (e.g. -1-5 -> 5-8193)
-    // TODO: check that carrier_freq is in range (< block_size)
 
     generate_lut();
 }
@@ -461,6 +473,7 @@ int main(int argc, char **argv) {
         }
     }
 
+    normalize_carrier_freq();
     init_buffers();
 
     fprintf(stderr, "block size: %zu; history length: %zu\n",
