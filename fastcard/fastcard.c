@@ -61,6 +61,7 @@ float threshold_constant = 12;
 float threshold_snr = 0;
 int carrier_freq_min = 0;
 int carrier_freq_max = -1;
+unsigned blocks_skip = 1;
 
 char *input_file = "";
 char *output_file = NULL;
@@ -359,29 +360,44 @@ const char *argp_program_version = "fastcard " VERSION_STRING;
 static char doc[] = "FastCarD: Fast Carrier Detection\n\n"
     "Takes a stream of raw 8-bit IQ samples from a RTL-SDR, splits it into "
     "fixed-sized blocks, and, if a carrier is detected in a block, outputs the "
-    "block ID, timestamp and the block's raw samples encoded in base64";
+    "block ID, timestamp and the block's raw samples encoded in base64.";
+
 static struct argp_option options[] = {
+    // I/O
+    {0, 0, 0, 0, "I/O settings:", 1},
     {"input",  'i', "<FILE>", 0,
-        "Input file with samples('-' for stdin) [default: stdin]", 0},
+        "Input file with samples ('-' for stdin)\n[default: stdin]", 1},
     {"output", 'o', "<FILE>", 0,
-        "Output card file ('-' for stdout) [default: no output]", 0},
+        "Output card file ('-' for stdout)\n[default: no output]", 1},
 #ifdef USE_FFTW
     {"wisdom-file", 'm', "<size>", 0,
-        "Wisfom file to use for FFT calculation "
-        "[default: fastcard.fftw_wisdom]", 0},
+        "Wisfom file to use for FFT calculation"
+        "\n[default: fastcard.fftw_wisdom]", 1},
 #endif
-    {"carrier-window", 'w', "<min>-<max>", 0,
-        "Window of frequency bins used for carrier detection "
-        "[default: no window]", 1},
-    {"threshold", 't', "<constant>c<snr>s", 0,
-        "Carrier detection theshold [default: 12c0s]", 1},
+
+    // Blocks
+    {0, 0, 0, 0, "Block settings:", 2},
     {"block-size", 'b', "<size>", 0,
         "Length of fixed-sized blocks, which should be a power of two"
         "[default: 8196]", 2},
     {"history", 'h', "<size>", 0,
         "The number of samples at the beginning of a block that should be "
         "copied from the end of the previous block [default: 2090]", 2},
-    {"quiet", 'q', 0, 0, "Shhh", 3},
+    {"skip", 'k', "<num_blocks>", 0,
+        "Number of blocks to skip while waiting for the SDR to stabilize "
+        "[default: 1]", 2},
+
+    // Carrier detection
+    {0, 0, 0, 0, "Carrier detection settings:", 3},
+    {"carrier-window", 'w', "<min>-<max>", 0,
+        "Window of frequency bins used for carrier detection "
+        "[default: no window]", 3},
+    {"threshold", 't', "<constant>c<snr>s", 0,
+        "Carrier detection theshold [default: 12c0s]", 3},
+
+    // Misc
+    {0, 0, 0, 0, "Miscellaneous:", -1},
+    {"quiet", 'q', 0, 0, "Shhh", -1},
     {0, 0, 0, 0, 0, 0}
 };
 
@@ -463,6 +479,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
             break;
         case 'h':
             history_size = strtoul(arg, &endptr, 10);
+            if (endptr == NULL || history_size < 1) argp_usage(state);
+            break;
+        case 'k':
+            blocks_skip = strtoul(arg, &endptr, 10);
             if (endptr == NULL || history_size < 1) argp_usage(state);
             break;
         case 'q':
@@ -551,6 +571,11 @@ int main(int argc, char **argv) {
 
     unsigned long i = 0;
     while (read_next_block(in) && keep_running) {
+        if (blocks_skip != 0) {
+            blocks_skip--;
+            continue;
+        }
+
         convert_raw_to_complex();
         perform_fft();
         if (detect_carrier(&d)) {
