@@ -16,6 +16,7 @@
 
 #include <endian.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -64,6 +65,9 @@ int carrier_freq_max = -1;
 char *input_file = "";
 char *output_file = NULL;
 
+FILE *info = NULL;
+bool silent = false;
+
 #ifdef USE_FFTW
 char *wisdom_file = "fastcard.fftw_wisdom";
 #endif
@@ -81,6 +85,15 @@ bool volatile keep_running = true;
 void signal_handler(int signo) {
     if (signo == SIGINT) {
         keep_running = false;
+    }
+}
+
+void info_out(const char * format, ...) {
+    if (!silent && info != NULL) {
+        va_list args;
+        va_start(args, format);
+        vfprintf(info, format, args);
+        va_end(args);
     }
 }
 
@@ -343,9 +356,9 @@ static char doc[] = "FastCarD: Fast Carrier Detection\n\n"
     "block ID, timestamp and the block's raw samples encoded in base64";
 static struct argp_option options[] = {
     {"input",  'i', "<FILE>", 0,
-        "Input file ('-' for stdin) [default: stdin]", 0},
+        "Input file with samples('-' for stdin) [default: stdin]", 0},
     {"output", 'o', "<FILE>", 0,
-        "Output file ('-' for stdout) [default: stdout]", 0},
+        "Output card file ('-' for stdout) [default: no output]", 0},
 #ifdef USE_FFTW
     {"wisdom-file", 'm', "<size>", 0,
         "Wisfom file to use for FFT calculation "
@@ -362,6 +375,7 @@ static struct argp_option options[] = {
     {"history", 'h', "<size>", 0,
         "The number of samples at the beginning of a block that should be "
         "copied from the end of the previous block [default: 2090]", 2},
+    {"quiet", 'q', 0, 0, "Shhh", 3},
     {0, 0, 0, 0, 0, 0}
 };
 
@@ -445,6 +459,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
             history_size = strtoul(arg, &endptr, 10);
             if (endptr == NULL || history_size < 1) argp_usage(state);
             break;
+        case 'q':
+            silent = true;
+            break;
         // We don't take any arguments
         case ARGP_KEY_ARG: argp_usage(state); break;
         default:
@@ -491,17 +508,23 @@ int main(int argc, char **argv) {
         }
     }
 
+    if (out == stdout) {
+        info = stderr;
+    } else {
+        info = stdout;
+    }
+
     normalize_carrier_freq();
     init_buffers();
 
     signal(SIGINT, signal_handler);
 
-    fprintf(stderr, "block size: %zu; history length: %zu\n",
-            block_size, history_size);
-    fprintf(stderr, "carrier bin window: min = %d; max = %d\n",
-            carrier_freq_min, carrier_freq_max);
-    fprintf(stderr, "threshold: constant = %g; snr = %g\n",
-            threshold_constant, threshold_snr);
+    info_out("block size: %zu; history length: %zu\n",
+             block_size, history_size);
+    info_out("carrier bin window: min = %d; max = %d\n",
+             carrier_freq_min, carrier_freq_max);
+    info_out("threshold: constant = %g; snr = %g\n\n",
+             threshold_constant, threshold_snr);
 
     if (out != NULL) {
         fprintf(out,
@@ -530,9 +553,8 @@ int main(int argc, char **argv) {
             // (https://stackoverflow.com/questions/6498972/)
             gettimeofday(&ts, NULL);
 
-            fprintf(stderr,
-                    "block #%lu: mag[%d] = %.1f (thresh = %.1f)\n",
-                    i, d.argmax, d.max, d.threshold);
+            info_out("block #%lu: mag[%d] = %.1f (thresh = %.1f)\n",
+                     i, d.argmax, d.max, d.threshold);
 
             if (out != NULL) {
                 base64_encode();
@@ -542,6 +564,8 @@ int main(int argc, char **argv) {
         }
         ++i;
     }
+
+    info_out("\nRead %lu blocks.\n", i);
 
     free_buffers();
 
