@@ -313,16 +313,20 @@ void base64_encode() {
 
 /* Parse arguments */
 const char *argp_program_version = "fastcard " VERSION_STRING;
-static char doc[] = "FastCarD: Fast Carrier Detection";
+static char doc[] = "FastCarD: Fast Carrier Detection\n\n"
+    "Takes a stream of raw 8-bit IQ samples from a RTL-SDR, splits it into "
+    "fixed-sized blocks, and, if a carrier is detected in a block, outputs the "
+    "block ID, timestamp and the block's raw samples encoded in base64";
 static struct argp_option options[] = {
     {"input",  'i', "<FILE>", 0,
-        "Input file (blank or omit for stdin)", 0},
+        "Input file ('-' for stdin) [default: stdin]", 0},
     {"output", 'o', "<FILE>", 0,
-        "Output detections to file (blank or '-' for stdout)", 0},
+        "Output file ('-' for stdout) [default: stdout]", 0},
     {"carrier", 'c', "<min>-<max>", 0,
-        "Window of frequency bins used for carrier detection.", 1},
+        "Window of frequency bins used for carrier detection "
+        "[default: no window]", 1},
     {"threshold", 't', "<constant>c<snr>s", 0,
-        "Carrier detection theshold.", 1},
+        "Carrier detection theshold [default: 12c0s]", 1},
     {0, 0, 0, 0, 0, 0}
 };
 
