@@ -62,7 +62,10 @@ int carrier_freq_max = -1;
 
 char *input_file = "";
 char *output_file = NULL;
+
+#ifdef USE_FFTW
 char *wisdom_file = "fastcard.fftw_wisdom";
+#endif
 
 // Buffers
 uint16_t *raw_samples;
@@ -334,7 +337,12 @@ static struct argp_option options[] = {
         "Input file ('-' for stdin) [default: stdin]", 0},
     {"output", 'o', "<FILE>", 0,
         "Output file ('-' for stdout) [default: stdout]", 0},
-    {"carrier", 'c', "<min>-<max>", 0,
+#ifdef USE_FFTW
+    {"wisdom-file", 'm', "<size>", 0,
+        "Wisfom file to use for FFT calculation "
+        "[default: fastcard.fftw_wisdom]", 0},
+#endif
+    {"carrier-window", 'w', "<min>-<max>", 0,
         "Window of frequency bins used for carrier detection "
         "[default: no window]", 1},
     {"threshold", 't', "<constant>c<snr>s", 0,
@@ -413,6 +421,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
     switch (key) {
         case 'i': input_file = arg; break;
         case 'o': output_file = arg; break;
+        case 'm': wisdom_file = arg; break;
         case 'c':
             if (!parse_carrier_str(arg)) argp_usage(state);
             break;
