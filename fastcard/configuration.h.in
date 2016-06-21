@@ -5,3 +5,4 @@
 #cmakedefine USE_FFTW
 #cmakedefine USE_GPUFFT
 #cmakedefine USE_VOLK
+#cmakedefine USE_LIBRTLSDR

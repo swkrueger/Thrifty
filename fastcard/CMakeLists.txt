@@ -22,13 +22,15 @@ cmake_minimum_required (VERSION 2.6)
 project (fastcard)
 enable_language(C)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
+
 # show all errors
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
 # the version number
 set (FASTCARD_VERSION_MAJOR 0)
-set (FASTCARD_VERSION_MINOR 2)
+set (FASTCARD_VERSION_MINOR 3)
 
 # use C99
 add_definitions(-std=c99)
@@ -92,6 +94,19 @@ option (USE_VOLK
 if (USE_VOLK)
     set (EXTRA_LIBS ${EXTRA_LIBS} volk)
 endif (USE_VOLK)
+
+# add librtlsdr dependency
+option (USE_LIBRTLSDR
+    "Use librtlsdr to read directly from SDR" ON)
+if (USE_LIBRTLSDR)
+    add_library(circbuf circbuf.c)
+
+    find_package(Threads)
+    find_package(LibRTLSDR)
+    include_directories(${LIBRTLSDR_INCLUDE_DIRS})
+
+    set (EXTRA_LIBS ${EXTRA_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBRTLSDR_LIBRARIES} circbuf)
+endif (USE_LIBRTLSDR)
 
 # configure a header file to pass some of the CMake settings to the source code
 configure_file (

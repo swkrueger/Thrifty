@@ -35,17 +35,31 @@
 
 #ifdef USE_FFTW
 #include <fftw3.h>
-#endif
+#endif /* USE_FFTW */
 
 #ifdef USE_GPUFFT
 #include <unistd.h>
 #include "lib/gpu_fft/gpu_fft.h"
 #include "lib/gpu_fft/mailbox.h"
-#endif
+#endif /* USE_GPUFFT */
 
 #ifdef USE_VOLK
 #include <volk/volk.h>
-#endif
+#endif /* USE_VOLK */
+
+#ifdef USE_LIBRTLSDR
+#include <pthread.h>
+#include <rtl-sdr.h>
+#include "circbuf.h"
+
+#define DEFAULT_FREQUENCY 433050000     // 433.05 MHz
+#define DEFAULT_SAMPLE_RATE 2200000     // 2.2 Msps
+#define DEFAULT_GAIN 0                  // 0 dB
+
+#define CIRCBUF_SIZE (16 * 16384 * 32)  // 8 MiB
+#define RTLSDR_BUF_LENGTH (16 * 16384)  // 256 KiB
+#define RTLSDR_BUF_NUM (16)             // \_> * 16 = 4 MiB
+#endif /* USE_LIBRTLSDR */
 
 #ifndef __STDC_IEC_559_COMPLEX__
 #error Complex numbers not supported
@@ -83,10 +97,31 @@ char *base64;
 
 bool volatile keep_running = true;
 
+#ifdef USE_LIBRTLSDR
+rtlsdr_dev_t *sdr_dev = NULL;
+circbuf_t *circbuf = NULL;
+pthread_t sdr_thread;
+int sdr_return_code;
+
+// WARNING: keep_running is accessed by multiple threads without a mutex.
+// FIXME: potential race condition
+bool volatile sdr_running = false;
+
+uint32_t sdr_frequency = DEFAULT_FREQUENCY;
+uint32_t sdr_sample_rate = DEFAULT_SAMPLE_RATE;
+int sdr_gain = DEFAULT_GAIN;
+uint32_t sdr_dev_index = 0;
+#endif
+
 void signal_handler(int signo) {
-    if (signo == SIGINT) {
-        keep_running = false;
+    (void)signo;  // unused
+    keep_running = false;
+
+#ifdef USE_LIBRTLSDR
+    if (circbuf != NULL) {
+        circbuf_cancel(circbuf);
     }
+#endif
 }
 
 void info_out(const char * format, ...) {
@@ -97,6 +132,189 @@ void info_out(const char * format, ...) {
         va_end(args);
     }
 }
+
+#ifdef USE_LIBRTLSDR
+
+// Copied from rtlsdr/src/convenience/convenience.c
+// <copy>
+int nearest_gain(rtlsdr_dev_t *dev, int target_gain) {
+    int i, err1, err2, count, nearest;
+    int* gains;
+    count = rtlsdr_get_tuner_gains(dev, NULL);
+    if (count <= 0) {
+        return 0;
+    }
+    gains = malloc(sizeof(int) * count);
+    count = rtlsdr_get_tuner_gains(dev, gains);
+    nearest = gains[0];
+    for (i=0; i<count; i++) {
+        err1 = abs(target_gain - nearest);
+        err2 = abs(target_gain - gains[i]);
+        if (err2 < err1) {
+            nearest = gains[i];
+        }
+    }
+    free(gains);
+    return nearest;
+}
+
+/* standard suffixes */
+double atofs(char *s) {
+	char last;
+	int len;
+	double suff = 1.0;
+	len = strlen(s);
+	last = s[len-1];
+	s[len-1] = '\0';
+	switch (last) {
+		case 'g':
+		case 'G':
+			suff *= 1e3;
+		case 'm':
+		case 'M':
+			suff *= 1e3;
+		case 'k':
+		case 'K':
+			suff *= 1e3;
+			suff *= atof(s);
+			s[len-1] = last;
+			return suff;
+	}
+	s[len-1] = last;
+	return atof(s);
+}
+// </copy>
+
+static void sdr_callback(unsigned char *buf, uint32_t len, void *ctx) {
+    if (ctx) {
+        if (!sdr_running) return;
+        circbuf_put((circbuf_t*) ctx, (char*) buf, len);
+    }
+}
+
+void sdr_free();
+
+bool sdr_init() {
+    circbuf = NULL;
+    sdr_dev = NULL;
+
+    uint32_t device_count = rtlsdr_get_device_count();
+    if (device_count == 0) {
+        fprintf(stderr, "No supported RTL-SDR devices found.\n");
+        goto fail;
+    }
+    if (sdr_dev_index >= device_count) {
+        fprintf(stderr, "RTL-SDR #%d not found\n", device_count);
+        goto fail;
+    }
+
+    int r = rtlsdr_open(&sdr_dev, (uint32_t)sdr_dev_index);
+    if (r < 0) {
+		fprintf(stderr, "Failed to open RTL-SDR device #%d.\n",
+                sdr_dev_index);
+        sdr_dev = NULL;
+        goto fail;
+    }
+
+    // set sample rate
+    r = rtlsdr_set_sample_rate(sdr_dev, sdr_sample_rate);
+    if (r < 0) {
+		fprintf(stderr, "Failed to set sample rate.\n");
+        goto fail;
+    }
+
+    // set center frequency
+	r = rtlsdr_set_center_freq(sdr_dev, sdr_frequency);
+    if (r < 0) {
+		fprintf(stderr, "Failed to set center frequency.\n");
+        goto fail;
+    }
+
+    // manual gain mode
+    r = rtlsdr_set_tuner_gain_mode(sdr_dev, 1);
+    if (r < 0) {
+        fprintf(stderr, "Failed to enable manual gain.\n");
+        goto fail;
+    }
+
+    // set gain
+    sdr_gain = nearest_gain(sdr_dev, sdr_gain);
+	if (r != 0) {
+		fprintf(stderr, "Failed to set tuner gain.\n");
+        goto fail;
+    }
+
+    // reset_buffer
+	r = rtlsdr_reset_buffer(sdr_dev);
+	if (r < 0) {
+		fprintf(stderr, "WARNING: Failed to reset buffers.\n");
+    }
+
+    circbuf = circbuf_new(CIRCBUF_SIZE);
+    if (circbuf == NULL) {
+        fprintf(stderr, "Failed to create circular buffer\n");
+        return false;
+    }
+
+    return true;
+
+fail:
+    sdr_free();
+    return false;
+}
+
+void *sdr_routine(void * args) {
+    (void)args; // ignore unused argument
+
+    int r = rtlsdr_read_async(
+            sdr_dev, sdr_callback, (void *)circbuf,
+            RTLSDR_BUF_NUM, RTLSDR_BUF_LENGTH);
+
+    if (sdr_running) {
+        // Premature exit -- an error occurred
+        circbuf_cancel(circbuf);
+    } else {
+        r = 0;
+    }
+
+    sdr_return_code = r;
+    return NULL;
+}
+
+void sdr_free() {
+    if (sdr_dev != NULL) {
+        rtlsdr_close(sdr_dev);
+    }
+    if (circbuf != NULL) {
+        circbuf_free(circbuf);
+    }
+}
+
+bool sdr_start() {
+    // Create RTL-SDR thread
+    int r = pthread_create(&sdr_thread, NULL, sdr_routine, NULL);
+    if (r != 0) {
+        return false;
+    }
+
+    sdr_running = true;
+    return true;
+}
+
+int sdr_stop() {
+    sdr_running = false;
+    circbuf_cancel(circbuf); // deadlock
+    rtlsdr_cancel_async(sdr_dev);
+
+    // wait for thread to finish
+    pthread_join(sdr_thread, NULL);
+    return sdr_return_code;
+}
+
+bool rtl_read(uint16_t *dst, size_t num_samples) {
+    return circbuf_get(circbuf, (char *)dst, 2 * num_samples);
+}
+#endif
 
 void generate_lut() {
     // generate lookup table for raw-to-complex conversion
@@ -176,6 +394,12 @@ bool read_next_block(FILE *f) {
     memcpy(raw_samples,
            raw_samples + b,
            history_size * 2);
+
+#ifdef USE_LIBRTLSDR
+    if (f == NULL) { // read from RTL-SDR
+        return rtl_read(raw_samples + history_size, b);
+    }
+#endif /* USE_LIBRTLSDR */
 
     // read new data
     size_t c = fread(raw_samples + history_size, 2, b, f);
@@ -355,6 +579,60 @@ void base64_encode() {
     Base64encode(base64, input, block_size * 2);
 }
 
+void process(FILE* in, FILE* out) {
+    carrier_detection_t d;
+    struct timeval ts;
+
+#ifdef USE_LIBRTLSDR
+    if (in == NULL) {
+        if (!sdr_start()) {
+            fprintf(stderr, "Failed to start RTL-SDR\n");
+            // TODO: return non-zero exit code
+            return;
+        }
+    }
+#endif /* USE_LIBRTLSDR */
+
+    unsigned long i = 0;
+    while (read_next_block(in) && keep_running) {
+        if (blocks_skip != 0) {
+            blocks_skip--;
+            continue;
+        }
+
+        convert_raw_to_complex();
+        perform_fft();
+        if (detect_carrier(&d)) {
+            // Get coarse timestamp
+            // This might impact performance negatively
+            // (https://stackoverflow.com/questions/6498972/)
+            gettimeofday(&ts, NULL);
+
+            info_out("block #%lu: mag[%d] = %.1f (thresh = %.1f)\n",
+                     i, d.argmax, d.max, d.threshold);
+
+            if (out != NULL) {
+                base64_encode();
+                fprintf(out, "%ld.%06ld %lu %s\n",
+                        ts.tv_sec, ts.tv_usec, i, base64);
+            }
+        }
+        ++i;
+    }
+
+#ifdef USE_LIBRTLSDR
+    if (in == NULL) {
+        int r = sdr_stop();
+        if (r != 0) {
+            fprintf(stderr, "\nRTL-SDR library error %d, exiting...\n", r);
+            // TODO: non-zero exit code
+        }
+    }
+#endif /* USE_LIBRTLSDR */
+
+    info_out("\nRead %lu blocks.\n", i);
+}
+
 /* Parse arguments */
 const char *argp_program_version = "fastcard " VERSION_STRING;
 static char doc[] = "FastCarD: Fast Carrier Detection\n\n"
@@ -366,7 +644,13 @@ static struct argp_option options[] = {
     // I/O
     {0, 0, 0, 0, "I/O settings:", 1},
     {"input",  'i', "<FILE>", 0,
-        "Input file with samples ('-' for stdin)\n[default: stdin]", 1},
+        "Input file with samples "
+#ifdef USE_LIBRTLSDR
+        "('-' for stdin, 'rtlsdr' for librtlsdr)\n[default: stdin]",
+#else /* USE_LIBRTLSDR */
+        "('-' for stdin)\n[default: stdin]",
+#endif /* USE_LIBRTLSDR */
+        1},
     {"output", 'o', "<FILE>", 0,
         "Output card file ('-' for stdout)\n[default: no output]", 1},
 #ifdef USE_FFTW
@@ -394,6 +678,19 @@ static struct argp_option options[] = {
         "[default: no window]", 3},
     {"threshold", 't', "<constant>c<snr>s", 0,
         "Carrier detection theshold [default: 12c0s]", 3},
+
+#ifdef USE_LIBRTLSDR
+    // Tuner
+    {0, 0, 0, 0, "Tuner settings (if input is 'rtlsdr'):", 4},
+    {"frequency", 'f', "<hz>", 0,
+        "Frequency to tune to [default: 433.05M]", 4},
+    {"sample-rate", 's', "<sps>", 0,
+        "Sample rate [default: 2.2M]", 4},
+    {"gain", 'g', "<db>", 0,
+        "Gain [default: 0]", 4},
+    {"device-index", 'd', "<index>", 0,
+        "RTL-SDR device index [default: 0]", 4},
+#endif /* USE_LIBRTLSDR */
 
     // Misc
     {0, 0, 0, 0, "Miscellaneous:", -1},
@@ -467,7 +764,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
         case 'i': input_file = arg; break;
         case 'o': output_file = arg; break;
         case 'm': wisdom_file = arg; break;
-        case 'c':
+        case 'w':
             if (!parse_carrier_str(arg)) argp_usage(state);
             break;
         case 't':
@@ -488,6 +785,17 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
         case 'q':
             silent = true;
             break;
+#ifdef USE_LIBRTLSDR
+        case 'f':
+            sdr_frequency = (uint32_t)atofs(arg);
+            break;
+        case 'g':
+            sdr_gain = (int)(atof(arg) * 10); // unit: tenths of a dB
+            break;
+        case 's':
+            sdr_sample_rate = (uint32_t)atofs(arg);
+            break;
+#endif /* USE_LIBRTLSDR */
         // We don't take any arguments
         case ARGP_KEY_ARG: argp_usage(state); break;
         default:
@@ -513,6 +821,10 @@ int main(int argc, char **argv) {
     FILE* in;
     if (strlen(input_file) == 0 || strcmp(input_file, "-") == 0) {
         in = stdin;
+#ifdef USE_LIBRTLSDR
+    } else if (strcmp(input_file, "rtlsdr") == 0) {
+        in = NULL;
+#endif /* USE_LIBRTLSDR */
     } else {
         in = fopen(input_file, "rb");
         if (in == NULL) {
@@ -543,7 +855,19 @@ int main(int argc, char **argv) {
     normalize_carrier_freq();
     init_buffers();
 
+#ifdef USE_LIBRTLSDR
+    if (in == NULL) {
+        if (!sdr_init()) {
+            fprintf(stderr, "Failed to initialize RTL-SDR.\n");
+            exit(1);
+        }
+    }
+#endif /* USE_LIBRTLSDR */
+
     signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+    signal(SIGQUIT, signal_handler);
+    signal(SIGPIPE, signal_handler);
 
     info_out("block size: %zu; history length: %zu\n",
              block_size, history_size);
@@ -552,6 +876,17 @@ int main(int argc, char **argv) {
     info_out("threshold: constant = %g; snr = %g\n\n",
              threshold_constant, threshold_snr);
 
+#ifdef USE_LIBRTLSDR
+    if (in == NULL) {
+        info_out("tuner:\n"
+                 "  center freq = %.06f MHz\n"
+                 "  sample rate = %.06f Msps\n"
+                 "  gain = %.02f dB\n",
+                 sdr_frequency / 1e6, sdr_sample_rate / 1e6, sdr_gain/10.0);
+    }
+#endif /* USE_LIBRTLSDR */
+    fflush(info);
+
     if (out != NULL) {
         fprintf(out,
                 "# arguments: { carrier_bin: '%d-%d', threshold: '%gc+%gs', "
@@ -559,52 +894,45 @@ int main(int argc, char **argv) {
                 carrier_freq_min, carrier_freq_max,
                 threshold_constant, threshold_snr,
                 block_size, history_size);
+#ifdef USE_LIBRTLSDR
+        if (in == NULL) {
+            fprintf(out, "# tuner: { freq: %u; sample_rate: %u; gain: %02f }\n",
+                    sdr_frequency, sdr_sample_rate, sdr_gain/10.0);
+        }
+#endif /* USE_LIBRTLSDR */
         fprintf(out, "# tool: 'fastcard " VERSION_STRING "'\n");
 
         struct timeval tv;
         gettimeofday(&tv, NULL);
         fprintf(out, "# start_time: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
+        fflush(out);
     }
 
-    carrier_detection_t d;
-    struct timeval ts;
+    process(in, out);
 
-    unsigned long i = 0;
-    while (read_next_block(in) && keep_running) {
-        if (blocks_skip != 0) {
-            blocks_skip--;
-            continue;
-        }
-
-        convert_raw_to_complex();
-        perform_fft();
-        if (detect_carrier(&d)) {
-            // Get coarse timestamp
-            // This might impact performance negatively
-            // (https://stackoverflow.com/questions/6498972/)
-            gettimeofday(&ts, NULL);
-
-            info_out("block #%lu: mag[%d] = %.1f (thresh = %.1f)\n",
-                     i, d.argmax, d.max, d.threshold);
-
-            if (out != NULL) {
-                base64_encode();
-                fprintf(out, "%ld.%06ld %lu %s\n",
-                        ts.tv_sec, ts.tv_usec, i, base64);
-            }
-        }
-        ++i;
+    if (info != NULL) {
+        fflush(info);
     }
 
-    info_out("\nRead %lu blocks.\n", i);
+    if (out != NULL) {
+        fflush(out);
+    }
+
+#ifdef USE_LIBRTLSDR
+    if (in == NULL) {
+        sdr_free();
+    }
+#endif /* USE_LIBRTLSDR */
 
     free_buffers();
 
-    if (in != stdin) {
+    if (in != NULL && in != stdin) {
         fclose(in);
     }
 
     if (out != NULL && out != stdout) {
         fclose(out);
     }
+
+    // TODO: return non-zero exit code when error occurred
 }
