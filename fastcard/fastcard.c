@@ -606,6 +606,9 @@ void process(FILE* in, FILE* out) {
             // Get coarse timestamp
             // This might impact performance negatively
             // (https://stackoverflow.com/questions/6498972/)
+            //
+            // TODO: add timestamp when we receive the data, not when it is
+            //       being processed.
             gettimeofday(&ts, NULL);
 
             info_out("block #%lu: mag[%d] = %.1f (thresh = %.1f)\n",
