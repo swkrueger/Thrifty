@@ -25,19 +25,18 @@ def identify(freqs):
 
     bin0 = np.min(freqs)
     cnts = np.bincount(freqs - bin0)
-    avg = np.mean(cnts)
-    print cnts
+    thresh = np.mean(cnts) / 2
 
     transitions = []
-    below_avg = False
+    below_thresh = False
     for i, c in enumerate(cnts):
-        if below_avg == False and c < avg:
+        if below_thresh == False and c < thresh:
             transitions.append(i)
-            below_avg = True
-        if below_avg == True and c > avg:
+            below_thresh = True
+        if below_thresh == True and c > thresh:
             transitions.append(i)
-            below_avg = False
-    if below_avg:
+            below_thresh = False
+    if below_thresh:
         transitions.pop()
 
     transitions = np.array(transitions)
@@ -45,6 +44,14 @@ def identify(freqs):
     bins = (transitions[1:] + transitions[:-1]) / 2 + bin0
     bins = np.insert(bins, 0, bin0)
     # print bins
+
+    print 'Freq bin counts: {} ++ {}'.format(bin0, cnts)
+    # print 'Transitions:', transitions
+    print 'Detected {} transmitter(s):'.format(len(bins))
+    binN = bin0 + len(cnts)
+    b = np.concatenate([bins, [binN]])
+    for i in range(len(b) - 1):
+        print ' {}: bins {} - {}'.format(i, b[i], b[i + 1] - 1)
     
     return np.digitize(freqs, bins) - 1
 
@@ -87,6 +94,7 @@ def integrate(*toad_list):
     toads = []
 
     for rxid, toad in enumerate(toad_list):
+        print 'Receiver #{}:'.format(rxid)
         detections = data.toads_array(toad, with_ids=False)
         txids = identify(detections['carrier_bin'])
 
@@ -101,6 +109,8 @@ def integrate(*toad_list):
         filtered = list(itertools.compress(toad, mask))
         toads.extend(filtered)
         # print len(toad), len(filtered), np.sum(mask)
+
+        print ''
 
     toads.sort(key=lambda x: x.timestamp)
 
