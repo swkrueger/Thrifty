@@ -2,4 +2,4 @@
 bad-functions=[]
 
 [TYPECHECK]
-ignored-classes=numpy,pytest
+ignored-classes=numpy,numpy.testing,pytest

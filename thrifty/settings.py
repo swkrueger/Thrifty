@@ -188,7 +188,7 @@ def load_args(parser, keys, argv=None, definitions=None):
     parser : argparse.ArgumentParser object
     keys : list of strings
     argv : list of strings
-        the command-line args (defaults to sys.argv)
+        The command-line args (defaults to sys.argv).
     definitions : dict
         Setting definitions (defaults to DEFINITIONS).
 
