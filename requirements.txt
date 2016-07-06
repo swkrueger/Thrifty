@@ -1,0 +1,16 @@
+# Core
+numpy
+scipy
+
+# Analysis
+matplotlib
+
+# Dev
+pytest
+flake8
+pylint>=1.4.3
+
+# Docs
+Sphinx
+numpydoc
+sphinx_rtd_theme
