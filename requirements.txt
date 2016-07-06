@@ -9,6 +9,7 @@ matplotlib
 pytest
 flake8
 pylint>=1.4.3
+virtualenv
 
 # Docs
 Sphinx

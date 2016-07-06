@@ -7,6 +7,8 @@ help:
 	@echo "  test       to run unit tests"
 	@echo "  lint       to lint the source files"
 	@echo "  docs       to generate Sphinx html docs"
+	@echo "  dev        to install thrifty using setup.py in editable mode"
+	@echo "  venv       to setup a virtualenv"
 
 .PHONY: init
 init:
@@ -24,3 +26,16 @@ lint:
 .PHONY: docs
 docs:
 	cd docs && $(MAKE) html
+
+.PHONY: dev
+dev:
+	pip install --user -e .
+
+.PHONY: venv
+venv:
+	@echo "Note: remember to install SciPy's dependencies"
+	@echo "(refer to http://stackoverflow.com/a/31840553)"
+	@echo ""
+	virtualenv venv; . venv/bin/activate; make init; pip install -e .; deactivate
+	@echo "Run 'venv/bin/active' to enter the virtual environment"
+	@echo "Run 'deactive' to leave the virtual environment"
