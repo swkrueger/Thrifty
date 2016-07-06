@@ -18,6 +18,7 @@ test:
 
 .PHONY: lint
 lint:
+	flake8 thrifty/ tests/
 	pylint -rn thrifty/*.py tests/*.py
 
 .PHONY: docs
