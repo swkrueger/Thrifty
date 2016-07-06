@@ -1,7 +1,9 @@
 """Module for splitting raw data into fixed-sized blocks."""
 
-import numpy as np
+import base64
 import time
+
+import numpy as np
 
 
 def _raw_reader(stream, chunk_size):
@@ -68,7 +70,7 @@ def block_reader(stream, size, history):
 
     Parameters
     ----------
-    stream : generator
+    stream : file-like object
         Raw 8-bit I/Q interleaved data from RTL-SDR.
     size : int
         Size of the blocks that should be generated.
@@ -80,11 +82,11 @@ def block_reader(stream, size, history):
     Yields
     ------
     timestamp : float
-        approximate time at which the data was captured
+        Approximate time at which the data was captured.
     block_idx : int
-        block index, starting from zero for the first block
+        Block index, starting from zero for the first block.
     data : :class:`numpy.ndarray`
-        complex-valued array with the block's samples
+        Complex-valued array with the block's samples.
     """
     new = size - history  # Number of new samples per block
     data = np.zeros(size)
@@ -92,3 +94,34 @@ def block_reader(stream, size, history):
         new_data = raw_to_complex(block)
         data = np.concatenate([data[-history:], new_data])
         yield time.time(), block_idx, data
+
+
+def card_reader(stream):
+    """Read blocks from .card file.
+
+    A .card ("CARrier Detection") file generally contains blocks of data for
+    which a carrier has been detected.
+
+    Parameters
+    ----------
+    stream : file-like object
+
+    Yields
+    ------
+    timestamp : float
+        Approximate time at which the data was captured.
+    block_idx : int
+        Block index, starting from zero for the first block that was captured.
+    data : :class:`numpy.ndarray`
+        Complex-valued array with the block's samples.
+    """
+    while True:
+        line = stream.readline()
+        if line == '':
+            break
+        if line[0] == '#':
+            continue
+        timestamp, idx, encoded = line.rstrip('\n').split(' ')
+        raw = np.fromstring(base64.b64decode(encoded), dtype='uint8')
+        data = raw_to_complex(raw)
+        yield float(timestamp), int(idx), data
