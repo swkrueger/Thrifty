@@ -23,5 +23,10 @@ setup(
     setup_requires=SETUP_REQUIRE,
     tests_require=TESTS_REQUIRE,
     extras_require=EXTRAS_REQUIRE,
-    packages=find_packages(exclude=('tests', 'docs', 'old'))
+    packages=find_packages(exclude=('tests', 'docs', 'old')),
+    entry_points={
+        'console_scripts': [
+            'fastcard_capture = thrifty.fastcard_capture:_main'
+        ]
+    },
 )

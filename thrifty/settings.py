@@ -24,21 +24,21 @@ DEFINITIONS = {
     'sample_rate': Definition(
         ['--sample-rate', '-s'],
         setting_parsers.metric_float,
-        '2.2e6',
+        '2.2M',
         "Sample rate (sps)"
     ),
 
     'chip_rate': Definition(
         ['--chip-rate', '-p'],
         setting_parsers.metric_float,
-        '1.08e6',
+        '1.08M',
         "Rate at which the code is being transmitted (bps)"
     ),
 
     'tuner.freq': Definition(
         ['--freq', '-f'],
         setting_parsers.metric_float,
-        '433e6',
+        '433M',
         "Tuner center frequency (Hz)"
     ),
 
@@ -58,12 +58,26 @@ DEFINITIONS = {
     ),
 
     'block.history': Definition(
-        ['--history', '-h'],
+        ['--history', '-y'],
         int,
         '2085',
         "The number of samples at the end of a block that should be repeated "
         "at the start of the next block (samples)"
     ),
+
+    'carrier.window': Definition(
+        ['--carrier-window', '-w'],
+        setting_parsers.freq_range,
+        '0--1',
+        "Range of frequencies or frequency bins to look for carrier"
+    ),
+
+    'carrier.threshold': Definition(
+        ['--carrier-threshold', '-t'],
+        setting_parsers.threshold,
+        '0',
+        "Threshold formula for carrier detector"
+    )
 }
 
 DEFAULT_CONFIG_PATH = 'thrifty.cfg'
@@ -107,9 +121,12 @@ def add_argparse_arguments(parser, keys, definitions=None):
             raise SettingKeyError("Unknown key: {}".format(key))
         setting = definitions[key]
         if len(setting.args):
+            help_str = setting.description
+            if setting.default is not None:
+                help_str += " [default: {}]".format(setting.default)
             parser.add_argument(*setting.args, dest=key,
-                                type=str, default=setting.default,
-                                help=setting.description)
+                                type=str,
+                                help=help_str)
 
 
 def load(args=None, config_file=None, definitions=None):
@@ -208,7 +225,7 @@ def load_args(parser, keys, argv=None, definitions=None):
     parser.add_argument('-c', '--config', dest=CONFIG_DEST,
                         type=str, default=None,
                         help="Config file to load settings from "
-                             "(default: {})".format(DEFAULT_CONFIG_PATH))
+                             "[default: {}]".format(DEFAULT_CONFIG_PATH))
     add_argparse_arguments(parser, keys, definitions=definitions)
     if argv is None:
         args_namespace = parser.parse_args()
@@ -217,6 +234,7 @@ def load_args(parser, keys, argv=None, definitions=None):
     args = vars(args_namespace)
 
     # Load config file
+    config_file = None
     config_arg = args[CONFIG_DEST]
     if config_arg is None:
         try:

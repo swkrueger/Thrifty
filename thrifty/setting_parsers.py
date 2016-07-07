@@ -95,7 +95,7 @@ def freq_range(string):
     match = re.match(_FREQ_RANGE_PATTERN, string)
 
     if not match:
-        raise ValueError('Invalid range')
+        raise ValueError('Invalid range: {}'.format(string))
 
     groups = match.groups()
 
