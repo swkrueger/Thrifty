@@ -6,19 +6,55 @@ import re
 
 
 # from https://docs.python.org/2/library/re.html#simulating-scanf
-FLOAT_REGEX = r'[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
-RANGE_REGEX = r'\s*-\s*'
-FREQ_MAG_REGEX = r'[kKmM]?'
-HERTZ_REGEX = r'[hH][zZ]'
+_FLOAT_REGEX = r'[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
+_RANGE_REGEX = r'\s*-\s*'
+_FREQ_MAG_REGEX = r'[kKmM]?'
+_HERTZ_REGEX = r'[hH][zZ]'
 
-FREQ_RANGE_PATTERN = re.compile(r'^({0})(?:{1}({0}))?\s*({2})({3})?$'.format(
-    FLOAT_REGEX, RANGE_REGEX, FREQ_MAG_REGEX, HERTZ_REGEX), re.IGNORECASE)
+_FREQ_RANGE_PATTERN = re.compile(r'^({0})(?:{1}({0}))?\s*({2})({3})?$'.format(
+    _FLOAT_REGEX, _RANGE_REGEX, _FREQ_MAG_REGEX, _HERTZ_REGEX), re.IGNORECASE)
+
+_SI_PREFIXES = {
+    'y': 1e-24,  # yocto
+    'z': 1e-21,  # zepto
+    'a': 1e-18,  # atto
+    'f': 1e-15,  # femto
+    'p': 1e-12,  # pico
+    'n': 1e-9,   # nano
+    'u': 1e-6,   # micro
+    'm': 1e-3,   # mili
+    'c': 1e-2,   # centi
+    'd': 1e-1,   # deci
+    'k': 1e3,    # kilo
+    'M': 1e6,    # mega
+    'G': 1e9,    # giga
+    'T': 1e12,   # tera
+    'P': 1e15,   # peta
+    'E': 1e18,   # exa
+    'Z': 1e21,   # zetta
+    'Y': 1e24,   # yotta
+}
 
 
 def metric_float(string):
-    """Parse a float with an optional metric prefix as suffix."""
-    # TODO: parse metric prefix
-    return float(string)
+    """Parse a float with an optional metric prefix as suffix.
+
+    Examples
+    --------
+    >>> metric_float('123.4')
+    123.4
+    >>> metric_float('1.2M')
+    1200000.0
+    >>> metric_float('3.4m')
+    0.0034
+    """
+    string = string.strip()
+    if len(string) > 0 and string[-1] in _SI_PREFIXES:
+        prefix = string[-1]
+        quantity_str, multiplier = string[:-1], _SI_PREFIXES[prefix]
+    else:
+        quantity_str, multiplier = string, 1
+    return float(quantity_str) * multiplier
 
 
 def freq_range(string):
@@ -52,7 +88,7 @@ def freq_range(string):
 
     """
 
-    match = re.match(FREQ_RANGE_PATTERN, string)
+    match = re.match(_FREQ_RANGE_PATTERN, string)
 
     if not match:
         raise ValueError('Invalid range')
