@@ -14,6 +14,10 @@ _HERTZ_REGEX = r'[hH][zZ]'
 _FREQ_RANGE_PATTERN = re.compile(r'^({0})(?:{1}({0}))?\s*({2})({3})?$'.format(
     _FLOAT_REGEX, _RANGE_REGEX, _FREQ_MAG_REGEX, _HERTZ_REGEX), re.IGNORECASE)
 
+_THRESHOLD_SYMBOL = r'constant|c|snr|s|stddev|d|'
+_THRESHOLD_TERM = r'^\s*(?=\S)(?:({0})\s*\*?\s*)?({1})\s*$'.format(
+    _FLOAT_REGEX, _THRESHOLD_SYMBOL)
+
 _SI_PREFIXES = {
     'y': 1e-24,  # yocto
     'z': 1e-21,  # zepto
@@ -132,3 +136,50 @@ def normalize_freq_range(range_, bin_freq):
         start = int(start / bin_freq)
         stop = int(stop / bin_freq)
         return start, stop
+
+
+def threshold(string):
+    """Parse threshold formula given as a string.
+
+    Parameters
+    ----------
+    string : str
+
+    Returns
+    -------
+    (constant, snr, stddev) : float
+
+    Raises
+    ------
+    ValueError
+        If the given string does not represent a treshold formula.
+
+    Examples
+    --------
+    >>> threshold("5 + 3*snr + stddev")
+    (5.0, 3.0, 1.0)
+    >>> threshold("10c+5s+2d")
+    (10.0, 5.0, 2.0)
+
+    """
+
+    if not string:
+        raise ValueError('Empty string')
+    constant, snr, stddev = 0.0, 0.0, 0.0
+    terms = string.split('+')
+    for term in terms:
+        match = re.match(_THRESHOLD_TERM, term)
+        if not match:
+            raise ValueError('Invalid threshold term: {}'.format(term))
+        quantity_str, symbol = match.groups()
+        if quantity_str is None:
+            quantity = 1.0
+        else:
+            quantity = float(quantity_str)
+        if symbol == 'constant' or symbol == 'c' or symbol == '':
+            constant += quantity
+        elif symbol == 'snr' or symbol == 's':
+            snr += quantity
+        elif symbol == 'stddev' or symbol == 'd':
+            stddev += quantity
+    return constant, snr, stddev

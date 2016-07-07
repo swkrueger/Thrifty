@@ -55,3 +55,45 @@ def test_metric_float_invalid():
     for test in tests:
         with pytest.raises(ValueError):
             setting_parsers.metric_float(test)
+
+
+def test_threshold():
+    """Test threshold parser with valid values"""
+    tests = [
+        ('0', (0.0, 0.0, 0.0)),
+        ('10.2', (10.2, 0.0, 0.0)),
+        ('c', (1.0, 0.0, 0.0)),
+        ('11c', (11.0, 0.0, 0.0)),
+        ('100 * constant', (100.0, 0.0, 0.0)),
+        ('snr', (0.0, 1.0, 0.0)),
+        ('5.2*snr', (0.0, 5.2, 0.0)),
+        (' 8s ', (0.0, 8.0, 0.0)),
+        ('stddev', (0.0, 0.0, 1.0)),
+        ('2.1stddev', (0.0, 0.0, 2.1)),
+        ('8.7*d', (0.0, 0.0, 8.7)),
+        ('10 + 4*snr', (10.0, 4.0, 0)),
+        ('40 + 3.8*snr + 2 stddev', (40.0, 3.8, 2.0)),
+        ('1+2s+3d+4+5s+6d', (5.0, 7.0, 9.0)),
+        ('c + s + d', (1.0, 1.0, 1.0)),
+    ]
+    for string, expected in tests:
+        assert setting_parsers.threshold(string) == expected
+
+
+def test_threshold_exceptions():
+    """Test threshold parser with invalid values"""
+    tests = [
+        '',
+        ' ',
+        '5+',
+        'junk',
+        '+5*stddev',
+        '*snr',
+        'stddev*snr',
+        '5 * stdde',
+        '2 * sn',
+        'const',
+    ]
+    for test in tests:
+        with pytest.raises(ValueError):
+            setting_parsers.threshold(test)
