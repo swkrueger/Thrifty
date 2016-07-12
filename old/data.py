@@ -10,6 +10,7 @@ import numpy as np
 # s/Result/Info
 
 # TODO: class description (detection within a block), field descriptions
+# Rename to CarrierSyncMetadata?
 CarrierSyncResult = namedtuple('CarrierSyncResult', [
     'bin',
     'offset',

@@ -121,7 +121,7 @@ def add_argparse_arguments(parser, keys, definitions=None):
             raise SettingKeyError("Unknown key: {}".format(key))
         setting = definitions[key]
         if len(setting.args):
-            help_str = setting.description
+            help_str = str(setting.description)
             if setting.default is not None:
                 help_str += " [default: {}]".format(setting.default)
             parser.add_argument(*setting.args, dest=key,

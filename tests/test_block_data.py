@@ -1,5 +1,5 @@
 """
-Unit test for settings module.
+Unit tests for block_data module.
 """
 
 import io
