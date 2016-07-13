@@ -2,7 +2,7 @@
 Detect the presence of a carrier in a block of data.
 
 Essentially checks for the frequency bin with the highest energy and tests it
-against the threshold.
+against the threshold (simple threshold detector).
 """
 
 from __future__ import absolute_import
@@ -80,13 +80,12 @@ def detect(fft_mag, thresh_coeffs, window=None, peak_filter=None):
     detected : bool
     peak_idx : int
     peak_energy : float
-    threshold : float
     """
 
     threshold = _calculate_threshold(fft_mag, thresh_coeffs)
     peak_idx, peak_energy = _window_peak(fft_mag, window, peak_filter)
     detected = (peak_energy > threshold)
-    return detected, peak_idx, peak_energy, threshold
+    return detected, peak_idx, peak_energy
 
 
 def _calculate_threshold(fft_mag, thresh_coeffs):
