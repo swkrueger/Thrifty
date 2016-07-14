@@ -21,6 +21,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import contextlib
+
 import numpy as np
 from scipy.optimize import curve_fit
 
@@ -100,6 +101,10 @@ def make_syncer(thresh_coeffs, window, block_len, carrier_len,
         estimate of the peak's energy.
     carrier_len : int
         The length of the carrier transmission, in number of samples.
+
+    Returns
+    -------
+    sync : callable
     """
     # pylint: disable=too-many-arguments
     if filter_len > 0:
@@ -108,12 +113,12 @@ def make_syncer(thresh_coeffs, window, block_len, carrier_len,
     else:
         weights = None
 
-    detector = lambda fft_mag: carrier_detect.detect(fft_mag, thresh_coeffs,
-                                                     window, weights)
+    def _detector(fft_mag):
+        return carrier_detect.detect(fft_mag, thresh_coeffs, window, weights)
     interpolator = make_dirichlet_interpolator(interpol_width,
                                                block_len, carrier_len)
     shifter = freq_shift
-    return lambda fft: sync(fft, detector, interpolator, shifter)
+    return lambda fft: sync(fft, _detector, interpolator, shifter)
 
 
 def dirichlet_kernel(xdata, block_len, carrier_len):
