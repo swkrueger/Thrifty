@@ -71,6 +71,7 @@ def sync(fft, detector, interpolator, shifter):
         if interpolator is not None:
             offset = interpolator(fft_mag, peak_idx)
         shifted_fft = shifter(fft, -(peak_idx+offset))
+        peak_energy = np.abs(shifted_fft[0])
     else:
         shifted_fft = None
     noise = np.mean(fft_mag)

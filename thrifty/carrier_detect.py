@@ -53,6 +53,8 @@ def fft_range_index(start, stop, length):
         start = length+start
     if stop < 0:
         stop = length+stop
+    if stop < start:
+        start, stop = stop, start
     return start, stop
 
 
@@ -115,7 +117,6 @@ def _window_peak(fft_mag, window, peak_filter):
         filter_delay = np.max(peak_filter)
     else:
         filter_delay = 0
-    print(mags)
 
     max_idx = np.argmax(mags)
     peak_energy = mags[max_idx]

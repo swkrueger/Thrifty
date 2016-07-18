@@ -123,6 +123,6 @@ def parabolic_interpolation(corr_mag, peak_idx):
         return 0
     a, b, c = corr_mag[peak_idx-1], corr_mag[peak_idx], corr_mag[peak_idx+1]
     offset = 0.5 * (c - a) / (2 * b - a - c)
-    if offset < 0.6 or offset > 0.6:
+    if offset < -0.6 or offset > 0.6:
         logging.warn("Large offset using parabolic interpolation: %f.", offset)
     return offset

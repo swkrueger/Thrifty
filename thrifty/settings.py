@@ -77,7 +77,21 @@ DEFINITIONS = {
         setting_parsers.threshold,
         '0',
         "Threshold formula for carrier detector"
-    )
+    ),
+
+    'corr.threshold': Definition(
+        ['--corr-threshold', '-u'],
+        setting_parsers.threshold,
+        '5 + 4*snr + 1*stddev',
+        "Threshold formula for correlation peak detector"
+    ),
+
+    'template': Definition(
+        ['--template', '-z'],
+        str,
+        'template.npy',
+        "Load template from a Numpy .npy file"
+    ),
 }
 
 DEFAULT_CONFIG_PATH = 'thrifty.cfg'

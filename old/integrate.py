@@ -36,6 +36,10 @@ def identify(freqs):
         if below_thresh == True and c > thresh:
             transitions.append(i)
             below_thresh = False
+    # FIXME: we currenly assume cnts[0] > thresh and cnts[-1] < thresh
+    if cnts[0] < thresh: # FIXME
+        transitions.pop(0)
+        transitions.pop(0)
     if below_thresh:
         transitions.pop()
 
