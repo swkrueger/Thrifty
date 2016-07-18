@@ -126,6 +126,16 @@ class SettingKeyError(Error):
         return repr(self.msg)
 
 
+class Namespace(dict):
+    """A hackish dict-like object with elements accessible as attributes.
+
+    Similar to argparse's Namespace class."""
+    # pylint: disable=no-member
+    def __init__(self, dict_):
+        dict.__init__(self, dict_)
+        self.__dict__.update(dict_)
+
+
 def add_argparse_arguments(parser, keys, definitions=None):
     """Generate argparse arguments for the settings with the given keys."""
     if definitions is None:
@@ -225,9 +235,9 @@ def load_args(parser, keys, argv=None, definitions=None):
 
     Returns
     -------
-    settings : dict
+    settings : Namespace
         Map of the requested setting keys to setting values.
-    extra_args : dict
+    extra_args : Namespace
         Any extra arguments that were added to the parser before this function
         got hold of it.
     """
@@ -271,7 +281,9 @@ def load_args(parser, keys, argv=None, definitions=None):
     settings = load(key_args, config_file, definitions)
     subset = {k: v for k, v in settings.iteritems() if k in keys}
 
-    return subset, extra_args
+    settings_obj = Namespace(subset)
+    args_obj = Namespace(extra_args)
+    return settings_obj, args_obj
 
 
 def _parse_config(config_file):

@@ -42,27 +42,27 @@ def _main():
                     'carrier_window', 'carrier_threshold']
     config, args = settings.load_args(parser, setting_keys)
 
-    bin_freq = config['sample_rate'] / config['block_size']
+    bin_freq = config.sample_rate / config.block_size
     window = setting_parsers.normalize_freq_range(
-        config['carrier_window'], bin_freq)
-    constant, snr, stddev = config['carrier_threshold']
+        config.carrier_window, bin_freq)
+    constant, snr, stddev = config.carrier_threshold
     if stddev != 0:
         print("Warning: fastcard does not support 'stddev' in threshold "
               "formula", file=sys.stderr)
 
     call = [
-        args['fastcard'],
+        args.fastcard,
         '-i', 'rtlsdr',
-        '-s', str(config['sample_rate']),
-        '-f', str(config['tuner_freq']),
-        '-g', str(config['tuner_gain']),
-        '-b', str(config['block_size']),
-        '-h', str(config['block_history']),
+        '-s', str(config.sample_rate),
+        '-f', str(config.tuner_freq),
+        '-g', str(config.tuner_gain),
+        '-b', str(config.block_size),
+        '-h', str(config.block_history),
         '-w', "{}-{}".format(window[0], window[1]),
         '-t', "{}c{}s".format(constant, snr)
     ]
-    if args['output_file'] is not None:
-        call.extend(['-o', args['output_file']])
+    if args.output_file is not None:
+        call.extend(['-o', args.output_file])
     logging.info("Calling %s", ' '.join(call))
     returncode = subprocess.call(call)
 

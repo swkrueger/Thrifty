@@ -117,29 +117,26 @@ def _main():
                     'corr_threshold', 'template']
     config, args = settings.load_args(parser, setting_keys)
 
-    quiet = args['quiet']
-    info_out = sys.stderr if args['output'] == sys.stdout else sys.stdout
+    info_out = sys.stderr if args.output == sys.stdout else sys.stdout
+    bin_freq = config.sample_rate / config.block_size
+    window = normalize_freq_range(config.carrier_window, bin_freq)
 
-    bin_freq = config['sample_rate'] / config['block_size']
-    window = normalize_freq_range(config['carrier_window'], bin_freq)
-    block_len = config['block_size']
-    history_len = config['block_history']
-
-    if args['raw']:
-        blocks = block_reader(args['input'], block_len, history_len)
+    if args.raw:
+        blocks = block_reader(args.input, config.block_size,
+                              config.block_history)
     else:
-        blocks = card_reader(args['input'])
+        blocks = card_reader(args.input)
 
-    template = np.load(config['template'])
+    template = np.load(config.template)
 
     detections = detect(blocks=blocks,
-                        block_len=block_len,
-                        history_len=history_len,
+                        block_len=config.block_size,
+                        history_len=config.block_history,
                         carrier_len=len(template),
-                        carrier_thresh=config['carrier_threshold'],
+                        carrier_thresh=config.carrier_threshold,
                         carrier_window=window,
                         template=template,
-                        corr_thresh=config['corr_threshold'])
+                        corr_thresh=config.corr_threshold)
 
     # Store previous SoAs for different frequency bins to output time interval
     # between subsequent transmissions from the same transmitter.
@@ -147,9 +144,9 @@ def _main():
 
     for detected, result in detections:
         if detected:
-            print(result.serialize(), file=args['output'])
+            print(result.serialize(), file=args.output)
 
-        if not quiet:
+        if not args.quiet:
             # Calculate time interval between subsequent transmissions
             dt_idx = result.carrier_info.bin // 2
             prev_soa = prev_soas.get(dt_idx, result.soa)
@@ -158,7 +155,7 @@ def _main():
 
             # Output summary line
             summary = _summary_line(detected, result, prev_soa,
-                                    config['sample_rate'], block_len)
+                                    config.sample_rate, config.block_size)
             print(summary, file=info_out)
 
 
