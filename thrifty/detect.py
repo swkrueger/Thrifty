@@ -112,18 +112,18 @@ def _main():
                         type=argparse.FileType('wb'), default='-',
                         help="Output file (.toad) ('-' for stdout)")
 
-    setting_keys = ['sample_rate', 'block.size', 'block.history',
-                    'carrier.window', 'carrier.threshold',
-                    'corr.threshold', 'template']
+    setting_keys = ['sample_rate', 'block_size', 'block_history',
+                    'carrier_window', 'carrier_threshold',
+                    'corr_threshold', 'template']
     config, args = settings.load_args(parser, setting_keys)
 
     quiet = args['quiet']
     info_out = sys.stderr if args['output'] == sys.stdout else sys.stdout
 
-    bin_freq = config['sample_rate'] / config['block.size']
-    window = normalize_freq_range(config['carrier.window'], bin_freq)
-    block_len = config['block.size']
-    history_len = config['block.history']
+    bin_freq = config['sample_rate'] / config['block_size']
+    window = normalize_freq_range(config['carrier_window'], bin_freq)
+    block_len = config['block_size']
+    history_len = config['block_history']
 
     if args['raw']:
         blocks = block_reader(args['input'], block_len, history_len)
@@ -136,10 +136,10 @@ def _main():
                         block_len=block_len,
                         history_len=history_len,
                         carrier_len=len(template),
-                        carrier_thresh=config['carrier.threshold'],
+                        carrier_thresh=config['carrier_threshold'],
                         carrier_window=window,
                         template=template,
-                        corr_thresh=config['corr.threshold'])
+                        corr_thresh=config['corr_threshold'])
 
     # Store previous SoAs for different frequency bins to output time interval
     # between subsequent transmissions from the same transmitter.

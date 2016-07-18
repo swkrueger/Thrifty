@@ -35,21 +35,21 @@ DEFINITIONS = {
         "Rate at which the code is being transmitted (bps)"
     ),
 
-    'tuner.freq': Definition(
+    'tuner_freq': Definition(
         ['--freq', '-f'],
         setting_parsers.metric_float,
         '433M',
         "Tuner center frequency (Hz)"
     ),
 
-    'tuner.gain': Definition(
+    'tuner_gain': Definition(
         ['--gain', '-g'],
         float,
         '20',
         "Tuner gain (dB)"
     ),
 
-    'block.size': Definition(
+    'block_size': Definition(
         ['--block-size', '-b'],
         int,
         '8192',
@@ -57,7 +57,7 @@ DEFINITIONS = {
         "(samples)"
     ),
 
-    'block.history': Definition(
+    'block_history': Definition(
         ['--history', '-y'],
         int,
         '2085',
@@ -65,21 +65,21 @@ DEFINITIONS = {
         "at the start of the next block (samples)"
     ),
 
-    'carrier.window': Definition(
+    'carrier_window': Definition(
         ['--carrier-window', '-w'],
         setting_parsers.freq_range,
         '0--1',
         "Range of frequencies or frequency bins to look for carrier"
     ),
 
-    'carrier.threshold': Definition(
+    'carrier_threshold': Definition(
         ['--carrier-threshold', '-t'],
         setting_parsers.threshold,
         '0',
         "Threshold formula for carrier detector"
     ),
 
-    'corr.threshold': Definition(
+    'corr_threshold': Definition(
         ['--corr-threshold', '-u'],
         setting_parsers.threshold,
         '5 + 4*snr + 1*stddev',

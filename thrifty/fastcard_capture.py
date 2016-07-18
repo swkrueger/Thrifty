@@ -37,15 +37,15 @@ def _main():
     parser.add_argument("output_file", nargs='?', help="Output file (.card)")
     parser.add_argument("--fastcard", dest="fastcard", default="fastcard",
                         help="Path to fastcard binary")
-    setting_keys = ['sample_rate', 'tuner.freq', 'tuner.gain',
-                    'block.size', 'block.history',
-                    'carrier.window', 'carrier.threshold']
+    setting_keys = ['sample_rate', 'tuner_freq', 'tuner_gain',
+                    'block_size', 'block_history',
+                    'carrier_window', 'carrier_threshold']
     config, args = settings.load_args(parser, setting_keys)
 
-    bin_freq = config['sample_rate'] / config['block.size']
+    bin_freq = config['sample_rate'] / config['block_size']
     window = setting_parsers.normalize_freq_range(
-        config['carrier.window'], bin_freq)
-    constant, snr, stddev = config['carrier.threshold']
+        config['carrier_window'], bin_freq)
+    constant, snr, stddev = config['carrier_threshold']
     if stddev != 0:
         print("Warning: fastcard does not support 'stddev' in threshold "
               "formula", file=sys.stderr)
@@ -54,10 +54,10 @@ def _main():
         args['fastcard'],
         '-i', 'rtlsdr',
         '-s', str(config['sample_rate']),
-        '-f', str(config['tuner.freq']),
-        '-g', str(config['tuner.gain']),
-        '-b', str(config['block.size']),
-        '-h', str(config['block.history']),
+        '-f', str(config['tuner_freq']),
+        '-g', str(config['tuner_gain']),
+        '-b', str(config['block_size']),
+        '-h', str(config['block_history']),
         '-w', "{}-{}".format(window[0], window[1]),
         '-t', "{}c{}s".format(constant, snr)
     ]
