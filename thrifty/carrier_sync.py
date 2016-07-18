@@ -20,26 +20,11 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import contextlib
-
 import numpy as np
 from scipy.optimize import curve_fit
 
 from thrifty import toads_data
 from thrifty import carrier_detect
-
-
-# Adapted from https://github.com/borg-project/borg/blob/master/borg/util.py
-@contextlib.contextmanager
-def numpy_set_errors(**kwargs):
-    """Temporarily modify numpy error options."""
-    old = np.seterr(**kwargs)
-    try:
-        yield
-    except:
-        raise
-    finally:
-        np.seterr(**old)
 
 
 def sync(fft, detector, interpolator, shifter):
@@ -130,7 +115,11 @@ def dirichlet_kernel(xdata, block_len, carrier_len):
     # pylint: disable=invalid-name
     N, W = block_len, carrier_len
     xdata = np.array(xdata, dtype=np.float64)
-    with numpy_set_errors(divide='ignore'):
+    with np.errstate(divide='ignore', invalid='ignore'):
+        # import sys
+        # print(np.sin(np.pi*W*xdata/N), file=sys.stderr)
+        # print(np.sin(np.pi*xdata/N), file=sys.stderr)
+        # print(W, file=sys.stderr)
         weights = np.sin(np.pi*W*xdata/N) / np.sin(np.pi*xdata/N) / W
         weights[np.isnan(weights)] = 1
     return weights
