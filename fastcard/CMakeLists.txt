@@ -121,3 +121,5 @@ include_directories("${PROJECT_BINARY_DIR}")
 add_executable(fastcard fastcard.c)
 target_link_libraries (fastcard ${EXTRA_LIBS})
 
+# add install targets
+install (TARGETS fastcard DESTINATION bin)
