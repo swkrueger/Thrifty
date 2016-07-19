@@ -72,10 +72,10 @@ class DetectionResult(object):
         t, b, s, ps, po, pe, pn, cb, co, ce, cn = map(float, fields)
 
         timestamp, block, soa = t, int(b), float(s)
-        toa = CorrDetectionInfo(sample=int(ps), offset=po, energy=pe, noise=pn)
+        soa = CorrDetectionInfo(sample=int(ps), offset=po, energy=pe, noise=pn)
         carrier = CarrierSyncInfo(bin=int(cb), offset=co, energy=ce, noise=cn)
 
-        return DetectionResult(timestamp, block, soa, carrier, toa, rxid, txid)
+        return DetectionResult(timestamp, block, soa, carrier, soa, rxid, txid)
 
 
 def _load_toads(stream, with_rxid=True, with_txid=True):
@@ -107,8 +107,8 @@ def toads_array(detections, with_ids=True):
         (
             i, line.rxid if with_ids else -1, line.txid if with_ids else -1,
             line.timestamp, line.block, line.soa,
-            line.toa.sample, line.toa.offset,
-            line.toa.energy, line.toa.noise,
+            line.soa.sample, line.soa.offset,
+            line.soa.energy, line.soa.noise,
             line.carrier.bin, line.carrier.offset,
             line.carrier.energy, line.carrier.noise
         )
