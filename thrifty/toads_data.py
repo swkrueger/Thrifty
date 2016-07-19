@@ -72,10 +72,18 @@ class DetectionResult(object):
         t, b, s, ps, po, pe, pn, cb, co, ce, cn = map(float, fields)
 
         timestamp, block, soa = t, int(b), float(s)
-        soa = CorrDetectionInfo(sample=int(ps), offset=po, energy=pe, noise=pn)
-        carrier = CarrierSyncInfo(bin=int(cb), offset=co, energy=ce, noise=cn)
+        corr_info = CorrDetectionInfo(sample=int(ps), offset=po,
+                                      energy=pe, noise=pn)
+        carrier_info = CarrierSyncInfo(bin=int(cb), offset=co,
+                                       energy=ce, noise=cn)
 
-        return DetectionResult(timestamp, block, soa, carrier, soa, rxid, txid)
+        return DetectionResult(timestamp=timestamp,
+                               block=block,
+                               soa=soa,
+                               carrier_info=carrier_info,
+                               corr_info=corr_info,
+                               rxid=rxid,
+                               txid=txid)
 
 
 def _load_toads(stream, with_rxid=True, with_txid=True):
@@ -107,10 +115,10 @@ def toads_array(detections, with_ids=True):
         (
             i, line.rxid if with_ids else -1, line.txid if with_ids else -1,
             line.timestamp, line.block, line.soa,
-            line.soa.sample, line.soa.offset,
-            line.soa.energy, line.soa.noise,
-            line.carrier.bin, line.carrier.offset,
-            line.carrier.energy, line.carrier.noise
+            line.corr_info.sample, line.corr_info.offset,
+            line.corr_info.energy, line.corr_info.noise,
+            line.carrier_info.bin, line.carrier_info.offset,
+            line.carrier_info.energy, line.carrier_info.noise
         )
         for i, line in enumerate(detections)
     ]
