@@ -37,6 +37,8 @@ def _main():
     parser.add_argument("output_file", nargs='?', help="Output file (.card)")
     parser.add_argument("--fastcard", dest="fastcard", default="fastcard",
                         help="Path to fastcard binary")
+    parser.add_argument('-d', '--device-index', dest='device_index',
+                        type=int, default=0, help="RTL-SDR device index")
     setting_keys = ['sample_rate', 'tuner_freq', 'tuner_gain',
                     'block_size', 'block_history',
                     'carrier_window', 'carrier_threshold']
@@ -56,6 +58,7 @@ def _main():
         '-s', str(config.sample_rate),
         '-f', str(config.tuner_freq),
         '-g', str(config.tuner_gain),
+        '-d', str(args.device_index),
         '-b', str(config.block_size),
         '-h', str(config.block_history),
         '-w', "{}-{}".format(window[0], window[1]),

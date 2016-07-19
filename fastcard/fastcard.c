@@ -798,6 +798,10 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
         case 's':
             sdr_sample_rate = (uint32_t)atofs(arg);
             break;
+        case 'd':
+            sdr_dev_index = strtoul(arg, &endptr, 10);
+            if (endptr == NULL || block_size < 1) argp_usage(state);
+            break;
 #endif /* USE_LIBRTLSDR */
         // We don't take any arguments
         case ARGP_KEY_ARG: argp_usage(state); break;
