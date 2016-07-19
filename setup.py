@@ -26,7 +26,7 @@ setup(
     packages=find_packages(exclude=('tests', 'docs', 'old')),
     entry_points={
         'console_scripts': [
-            'fastcard_capture = thrifty.fastcard_capture:_main'
+            'thrifty = thrifty.cli:_main'
         ]
     },
 )
