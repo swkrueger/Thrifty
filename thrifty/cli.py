@@ -16,6 +16,7 @@ from thrifty import integrate
 from thrifty import matchmaker
 from thrifty import clock_sync
 from thrifty import template_generate
+from thrifty import template_extract
 
 
 HELP = """usage: thrifty <command> [<args>]
@@ -35,6 +36,7 @@ Valid commands are:
 
     ~ Utilities ~
     template_generate  Generate a new (ideal) template
+    template_extract   Extract a new template from captured data
 
 Use 'thrifty help <command>' for information about the command's arguments."""
 
@@ -47,6 +49,7 @@ MODULES = {
     'match': matchmaker._main,
     'clock_sync': clock_sync._main,
     'template_generate': template_generate._main,
+    'template_extract': template_extract._main,
 }
 
 
