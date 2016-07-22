@@ -15,6 +15,7 @@ from thrifty import fastcard_capture
 from thrifty import integrate
 from thrifty import matchmaker
 from thrifty import clock_sync
+from thrifty import template_generate
 
 
 HELP = """usage: thrifty <command> [<args>]
@@ -25,13 +26,28 @@ Thrifty is divided into several modules. Each module is accessible as a command
 and has its own arguments.
 
 Valid commands are:
+    ~ Core functionality ~
     capture       Capture carrier detections from RTL-SDR using fastcard
     detect        Detect presence of positioning signals and estimate SoA
     integrate     Merge RX detections and identify transmitter IDs
     match         Match detections from multiple receivers
     clock_sync    Build clock sync model from beacon transmissions
 
+    ~ Utilities ~
+    template_generate  Generate a new (ideal) template
+
 Use 'thrifty help <command>' for information about the command's arguments."""
+
+
+MODULES = {
+    # pylint: disable=protected-access
+    'capture': fastcard_capture._main,
+    'detect': detect._main,
+    'integrate': integrate._main,
+    'match': matchmaker._main,
+    'clock_sync': clock_sync._main,
+    'template_generate': template_generate._main,
+}
 
 
 def _print_help():
@@ -39,8 +55,6 @@ def _print_help():
 
 
 def _main():
-    # pylint: disable=protected-access
-
     if len(sys.argv) == 1:
         _print_help()
         sys.exit(1)
@@ -55,23 +69,14 @@ def _main():
             _print_help()
             sys.exit(0)
 
-    if command == 'capture':
-        method = fastcard_capture._main
-    elif command == 'detect':
-        method = detect._main
-    elif command == 'integrate':
-        method = integrate._main
-    elif command == 'match':
-        method = matchmaker._main
-    elif command == 'clock_sync':
-        method = clock_sync._main
+    if command in MODULES:
+        sys.argv[0] += ' ' + command
+        method = MODULES[command]
+        method()
     else:
         print("thrifty: {} is not a thrifty command. See 'thrifty --help'."
               .format(command), file=sys.stderr)
         sys.exit(1)
-
-    sys.argv[0] += ' ' + command
-    method()
 
 
 if __name__ == "__main__":
