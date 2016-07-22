@@ -14,6 +14,7 @@ from thrifty import detect
 from thrifty import fastcard_capture
 from thrifty import integrate
 from thrifty import matchmaker
+from thrifty import clock_sync
 
 
 HELP = """usage: thrifty <command> [<args>]
@@ -28,6 +29,7 @@ Valid commands are:
     detect        Detect presence of positioning signals and estimate SoA
     integrate     Merge RX detections and identify transmitter IDs
     match         Match detections from multiple receivers
+    clock_sync    Build clock sync model from beacon transmissions
 
 Use 'thrifty help <command>' for information about the command's arguments."""
 
@@ -61,6 +63,8 @@ def _main():
         method = integrate._main
     elif command == 'match':
         method = matchmaker._main
+    elif command == 'clock_sync':
+        method = clock_sync._main
     else:
         print("thrifty: {} is not a thrifty command. See 'thrifty --help'."
               .format(command), file=sys.stderr)

@@ -9,11 +9,11 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import data
-import matchmaker
-
 import numpy as np
 import matplotlib.pyplot as plt
+
+from thrifty import matchmaker
+from thrifty import toads_data
 
 
 def plot(soa1, residuals, discontinuities, avg_snr=None):
@@ -38,6 +38,8 @@ def plot(soa1, residuals, discontinuities, avg_snr=None):
     plt.title("Histogram: residuals")
     plt.grid()
 
+    # TODO: plot discontinuities
+
     plt.suptitle("Clock sync (stddev = {:.01f} m; max = {:.01f} m; "
                  "avg corr SNR: {:.01f} dB)"
                  .format(np.std(residuals) * s2m,
@@ -53,7 +55,7 @@ def plot(soa1, residuals, discontinuities, avg_snr=None):
 
 def clock_sync(detections, matches, beacon):
     """
-    Prameters
+    Parameters
     ---------
     detections: detection array
     matches:    match array
@@ -67,7 +69,7 @@ def clock_sync(detections, matches, beacon):
     # Extract beacon's matches
     # Incomplete matches aren't supported at the moment
     matches = np.array([x for x in matches
-                       if sum([y != -1 for y in x]) == num_rx
+                        if sum([y != -1 for y in x]) == num_rx
                         and detections['txid'][x[0]] == beacon])
     print("Number of detection groups:", len(matches))
 
@@ -123,17 +125,21 @@ def sync(soa, deg=2):
     return coef, residuals
 
 
-def main():
+def _main():
     import argparse
 
     formatter = argparse.RawDescriptionHelpFormatter
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=formatter)
 
-    parser.add_argument('toads',
+    # TODO: default values for toads and matches:
+    #  - zero parameters: rx.toads; rx.match
+    #  - if one parameter: append ".toads" and ".match"
+    #  - if two parameters: use the files being specified
+    parser.add_argument('toads', nargs='?',
                         type=argparse.FileType('rb'), default='rx.toads',
                         help="toads data (\"-\" streams from stdin)")
-    parser.add_argument('matches',
+    parser.add_argument('matches', nargs='?',
                         type=argparse.FileType('rb'), default='rx.match',
                         help="toads data (\"-\" streams from stdin)")
     parser.add_argument('--id', dest='beacon_id', type=int, default=0,
@@ -141,11 +147,11 @@ def main():
 
     args = parser.parse_args()
 
-    toads = data.load_toads(args.toads)
-    detections = data.toads_array(toads, with_ids=True)
+    toads = toads_data.load_toads(args.toads)
+    detections = toads_data.toads_array(toads, with_ids=True)
     matches = matchmaker.load_matches(args.matches)
 
     clock_sync(detections, matches, args.beacon_id)
 
 if __name__ == '__main__':
-    main()
+    _main()
