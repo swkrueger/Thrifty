@@ -62,7 +62,8 @@ def _main():
         '-b', str(config.block_size),
         '-h', str(config.block_history),
         '-w', "{}-{}".format(window[0], window[1]),
-        '-t', "{}c{}s".format(constant, snr)
+        '-t', "{}c{}s".format(constant, snr),
+        # '-k', '25000',
     ]
     if args.output_file is not None:
         call.extend(['-o', args.output_file])

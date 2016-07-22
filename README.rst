@@ -1,7 +1,8 @@
 Thrifty
 =======
 
-Thrifty is proof-of-concept SDR software for TDOA positioning.
+Thrifty is proof-of-concept SDR software for TDOA positioning using inexpensive
+SDR hardware such as the RTL-SDR.
 
 Requirements
 ------------

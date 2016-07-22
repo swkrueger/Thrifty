@@ -121,6 +121,8 @@ def card_reader(stream):
             break
         if line[0] == '#':
             continue
+        if line.startswith('Using Volk machine:'):
+            continue
         timestamp, idx, encoded = line.rstrip('\n').split(' ')
         raw = np.fromstring(base64.b64decode(encoded), dtype='uint8')
         data = raw_to_complex(raw)

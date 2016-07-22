@@ -5,7 +5,7 @@ import numpy as np
 
 def snr(peak_ampl, noise):
     """Calculate SNR given amplitude and noise RMS."""
-    return 20 * np.log10(peak_ampl / noise)
+    return 20 * np.log10(np.divide(peak_ampl, noise))
 
 
 def fft_bin(idx, fft_len):

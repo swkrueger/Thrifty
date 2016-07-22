@@ -56,7 +56,7 @@ def quantize_freqs(freqs):
     edges = np.concatenate([[first_bin], edges, [last_bin]])
 
     print("Freq bin counts: {} ++ {}".format(first_bin, cnts))
-    print("Detected {} transmitter(s):".format(len(edges) - 2))
+    print("Detected {} transmitter(s):".format(len(edges) - 1))
 
     for i in range(len(edges) - 1):
         print(" {}: bins {} - {}".format(i, edges[i], edges[i+1] - 1))
@@ -165,7 +165,7 @@ def _main():
                         default='-', help="output file (default is stdout)")
 
     args = parser.parse_args()
-    generate_toads(args.output, *args.peakd_file)
+    generate_toads(args.output, *args.toad_file)
 
 
 if __name__ == "__main__":

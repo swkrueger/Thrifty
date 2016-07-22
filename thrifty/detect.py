@@ -21,7 +21,7 @@ from thrifty.soa_estimator import make_soa_estimator
 
 def detect(blocks, block_len, history_len,
            carrier_len, carrier_thresh, carrier_window,
-           template, corr_thresh):
+           template, corr_thresh, yield_data=False):
     """Detect positioning signals and estimate sample-of-arrival.
 
     All-in-one signal detection and sample-of-arrival estimation. Find carrier,
@@ -52,7 +52,10 @@ def detect(blocks, block_len, history_len,
 
         result = toads_data.DetectionResult(timestamp, block_idx, soa,
                                             carrier_info, corr_info)
-        yield detected, result
+        if yield_data:
+            yield detected, result, shifted_fft, corr_info
+        else:
+            yield detected, result
 
 
 def _carrier_freq(carrier_info, block_len, sample_rate):

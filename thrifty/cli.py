@@ -15,28 +15,34 @@ from thrifty import fastcard_capture
 from thrifty import integrate
 from thrifty import matchmaker
 from thrifty import clock_sync
+from thrifty import toads_analysis
 from thrifty import template_generate
 from thrifty import template_extract
 
 
 HELP = """usage: thrifty <command> [<args>]
 
-Thrifty is proof-of-concept SDR software for TDOA positioning.
+Thrifty is proof-of-concept SDR software for TDOA positioning using inexpensive
+SDR hardware such as the RTL-SDR.
 
 Thrifty is divided into several modules. Each module is accessible as a command
 and has its own arguments.
 
 Valid commands are:
+
     ~ Core functionality ~
-    capture       Capture carrier detections from RTL-SDR using fastcard
-    detect        Detect presence of positioning signals and estimate SoA
-    integrate     Merge RX detections and identify transmitter IDs
-    match         Match detections from multiple receivers
-    clock_sync    Build clock sync model from beacon transmissions
+    capture           Capture carrier detections from RTL-SDR using fastcard
+    detect            Detect presence of positioning signals and estimate SoA
+    integrate         Merge RX detections and identify transmitter IDs
+    match             Match detections from multiple receivers
+    clock_sync        Build clock sync model from beacon transmissions
+
+    ~ Analysis tools ~
+    analyze_toads     Calculate statistics on data in a .toads file
 
     ~ Utilities ~
-    template_generate  Generate a new (ideal) template
-    template_extract   Extract a new template from captured data
+    template_generate Generate a new (ideal) template
+    template_extract  Extract a new template from captured data
 
 Use 'thrifty help <command>' for information about the command's arguments."""
 
@@ -48,6 +54,7 @@ MODULES = {
     'integrate': integrate._main,
     'match': matchmaker._main,
     'clock_sync': clock_sync._main,
+    'analyze_toads': toads_analysis._main,
     'template_generate': template_generate._main,
     'template_extract': template_extract._main,
 }
