@@ -18,6 +18,10 @@ from thrifty import clock_sync
 from thrifty import toads_analysis
 from thrifty import template_generate
 from thrifty import template_extract
+try:
+    from thrifty import scope
+except ImportError:
+    scope = None
 
 
 HELP = """usage: thrifty <command> [<args>]
@@ -38,6 +42,7 @@ Valid commands are:
     clock_sync        Build clock sync model from beacon transmissions
 
     ~ Analysis tools ~
+    scope             Live time-domain and frequency-domain plots with triggers
     analyze_toads     Calculate statistics on data in a .toads file
 
     ~ Utilities ~
@@ -58,6 +63,10 @@ MODULES = {
     'template_generate': template_generate._main,
     'template_extract': template_extract._main,
 }
+
+if scope is not None:
+    # pylint: disable=protected-access
+    MODULES['scope'] = scope._main
 
 
 def _print_help():
