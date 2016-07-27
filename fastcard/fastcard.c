@@ -239,6 +239,7 @@ bool sdr_init() {
 
     // set gain
     sdr_gain = nearest_gain(sdr_dev, sdr_gain);
+    r = rtlsdr_set_tuner_gain(sdr_dev, sdr_gain);
 	if (r != 0) {
 		fprintf(stderr, "Failed to set tuner gain.\n");
         goto fail;
@@ -531,7 +532,7 @@ bool detect_carrier(carrier_detection_t *d) {
         volk_32f_accumulator_s32f(&sum, fft_mag, block_size);
     }
 
-    unsigned int argmax; // todo: volk_malloc
+    uint16_t argmax; // todo: volk_malloc
     volk_32f_index_max_16u(
             &argmax,
             fft_mag + carrier_freq_min,
