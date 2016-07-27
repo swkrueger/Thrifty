@@ -35,31 +35,36 @@ def quantize_freqs(freqs):
     first_bin = np.min(freqs)
     cnts = np.bincount(freqs - first_bin)
     last_bin = first_bin + len(cnts)
-    thresh = np.mean(cnts) / 2
+    thresh = np.std(cnts) * 2
+    print("New bin threshold:", thresh)
 
-    transitions = []
+    peaks = []
     below_thresh = True
+    above_thresh_start = None
     for i, cnt in enumerate(cnts):
         if not below_thresh and cnt < thresh:
-            transitions.append(i)
+            peaks.append((above_thresh_start, i))
+            above_thresh_start = None
             below_thresh = True
         if below_thresh and cnt > thresh:
-            if len(transitions) > 0:
-                transitions.append(i)
+            above_thresh_start = i
             below_thresh = False
-    if below_thresh:
-        transitions.pop()
+    if not below_thresh:
+        peaks.append((above_thresh_start, len(cnts) - 1))
 
-    transitions = np.array(transitions)
-    # print transitions
-    edges = (transitions[1:] + transitions[:-1]) // 2 + first_bin
-    edges = np.concatenate([[first_bin], edges, [last_bin]])
+    edges = [(peaks[i][1] + peaks[i+1][0]) // 2 for i in range(len(peaks)-1)]
+    edges = np.concatenate([[first_bin],
+                            np.array(edges) + first_bin,
+                            [last_bin]])
 
     print("Freq bin counts: {} ++ {}".format(first_bin, cnts))
     print("Detected {} transmitter(s):".format(len(edges) - 1))
 
     for i in range(len(edges) - 1):
-        print(" {}: bins {} - {}".format(i, edges[i], edges[i+1] - 1))
+        start, stop = edges[i], edges[i+1] - 1
+        bins = cnts[start-first_bin:stop-first_bin+1]
+        print(" {}: bins {} - {}".format(i, start, stop))
+        print("     {}".format(bins))
 
     return edges
 
@@ -129,6 +134,8 @@ def integrate(*toad_list):
         filtered = list(itertools.compress(toad, mask))
         toads.extend(filtered)
         # print len(toad), len(filtered), np.sum(mask)
+        print("Removed {} duplicates from {} detections.".format(
+            len(toad)-len(filtered), len(toad)))
 
         print('')
 
@@ -142,9 +149,7 @@ def integrate(*toad_list):
 
 def generate_toads(output, *toad_streams):
     output.write("# source_files: [%s]\n" % (' '.join(toad_streams)))
-    # input_data = [open(fn, 'rb').readlines() for fn in toad_streams]
 
-    # load toad files
     toad_list = []
     for stream in toad_streams:
         data = toads_data.load_toad(open(stream, 'rb'))
