@@ -9,19 +9,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import sys
-
-from thrifty import detect
-from thrifty import fastcard_capture
-from thrifty import integrate
-from thrifty import matchmaker
-from thrifty import clock_sync
-from thrifty import toads_analysis
-from thrifty import template_generate
-from thrifty import template_extract
-try:
-    from thrifty import scope
-except ImportError:
-    scope = None
+import importlib
 
 
 HELP = """usage: thrifty <command> [<args>]
@@ -53,20 +41,16 @@ Use 'thrifty help <command>' for information about the command's arguments."""
 
 
 MODULES = {
-    # pylint: disable=protected-access
-    'capture': fastcard_capture._main,
-    'detect': detect._main,
-    'integrate': integrate._main,
-    'match': matchmaker._main,
-    'clock_sync': clock_sync._main,
-    'analyze_toads': toads_analysis._main,
-    'template_generate': template_generate._main,
-    'template_extract': template_extract._main,
+    'capture': 'thrifty.fastcard_capture',
+    'detect': 'thrifty.detect',
+    'integrate': 'thrifty.integrate',
+    'match': 'thrifty.matchmaker',
+    'clock_sync': 'thrifty.clock_sync',
+    'analyze_toads': 'thrifty.toads_analysis',
+    'template_generate': 'thrifty.template_generate',
+    'template_extract': 'thrifty.template_extract',
+    'scope': 'thrifty.scope',
 }
-
-if scope is not None:
-    # pylint: disable=protected-access
-    MODULES['scope'] = scope._main
 
 
 def _print_help():
@@ -89,9 +73,11 @@ def _main():
             sys.exit(0)
 
     if command in MODULES:
+        # pylint: disable=protected-access
         sys.argv[0] += ' ' + command
-        method = MODULES[command]
-        method()
+        module_name = MODULES[command]
+        module = importlib.import_module(module_name)
+        module._main()
     else:
         print("thrifty: {} is not a thrifty command. See 'thrifty --help'."
               .format(command), file=sys.stderr)
