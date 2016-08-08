@@ -24,21 +24,21 @@ DEFINITIONS = {
     'sample_rate': Definition(
         ['--sample-rate', '-s'],
         setting_parsers.metric_float,
-        '2.2M',
+        '2.4M',
         "Sample rate (sps)"
     ),
 
     'chip_rate': Definition(
         ['--chip-rate', '-p'],
         setting_parsers.metric_float,
-        '1.08M',
+        '0.9444M',
         "Rate at which the code is being transmitted (bps)"
     ),
 
     'tuner_freq': Definition(
         ['--freq', '-f'],
         setting_parsers.metric_float,
-        '433M',
+        '433.01M',
         "Tuner center frequency (Hz)"
     ),
 
@@ -52,7 +52,7 @@ DEFINITIONS = {
     'block_size': Definition(
         ['--block-size', '-b'],
         int,
-        '8192',
+        '16384',
         "Length of fixed-sized blocks, which should be a power of two "
         "(samples)"
     ),
@@ -60,7 +60,7 @@ DEFINITIONS = {
     'block_history': Definition(
         ['--history', '-y'],
         int,
-        '2085',
+        '5210',
         "The number of samples at the end of a block that should be repeated "
         "at the start of the next block (samples)"
     ),
@@ -82,7 +82,7 @@ DEFINITIONS = {
     'corr_threshold': Definition(
         ['--corr-threshold', '-u'],
         setting_parsers.threshold,
-        '5 + 4*snr + 1*stddev',
+        '5 + 3*snr + 1*stddev',
         "Threshold formula for correlation peak detector"
     ),
 

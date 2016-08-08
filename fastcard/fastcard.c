@@ -52,8 +52,8 @@
 #include <rtl-sdr.h>
 #include "circbuf.h"
 
-#define DEFAULT_FREQUENCY 433050000     // 433.05 MHz
-#define DEFAULT_SAMPLE_RATE 2200000     // 2.2 Msps
+#define DEFAULT_FREQUENCY 433010000     // 433.01 MHz
+#define DEFAULT_SAMPLE_RATE 2400000     // 2.4 Msps
 #define DEFAULT_GAIN 0                  // 0 dB
 
 #define CIRCBUF_SIZE (16 * 16384 * 32)  // 8 MiB
@@ -68,8 +68,8 @@
 typedef float complex fc_complex;
 
 // Settings
-size_t block_size = 8192;        // 2^13
-size_t history_size = 2090;
+size_t block_size = 16384;  // 2^14
+size_t history_size = 5210;
 
 float threshold_constant = 12;
 float threshold_snr = 0;
@@ -666,11 +666,11 @@ static struct argp_option options[] = {
     // Blocks
     {0, 0, 0, 0, "Block settings:", 2},
     {"block-size", 'b', "<size>", 0,
-        "Length of fixed-sized blocks, which should be a power of two"
-        "[default: 8196]", 2},
+        "Length of fixed-sized blocks, which should be a power of two "
+        "[default: 16384]", 2},
     {"history", 'h', "<size>", 0,
         "The number of samples at the beginning of a block that should be "
-        "copied from the end of the previous block [default: 2090]", 2},
+        "copied from the end of the previous block [default: 5210]", 2},
     {"skip", 'k', "<num_blocks>", 0,
         "Number of blocks to skip while waiting for the SDR to stabilize "
         "[default: 1]", 2},
@@ -687,9 +687,9 @@ static struct argp_option options[] = {
     // Tuner
     {0, 0, 0, 0, "Tuner settings (if input is 'rtlsdr'):", 4},
     {"frequency", 'f', "<hz>", 0,
-        "Frequency to tune to [default: 433.05M]", 4},
+        "Frequency to tune to [default: 433.01M]", 4},
     {"sample-rate", 's', "<sps>", 0,
-        "Sample rate [default: 2.2M]", 4},
+        "Sample rate [default: 2.4M]", 4},
     {"gain", 'g', "<db>", 0,
         "Gain [default: 0]", 4},
     {"device-index", 'd', "<index>", 0,
