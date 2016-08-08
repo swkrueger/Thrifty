@@ -18,6 +18,7 @@ To install thrifty::
     $ sudo pip install .
 
 or::
+
     $ sudo python setup.py install
 
 In addition to installing thrifty into the system's Python environment, this
@@ -29,13 +30,13 @@ source location to the user's install location::
 
     $ make dev
 
-Thrifty requires `fastcard` to capture data. Refer to `fastcard/README.md` for
+Thrifty requires ``fastcard`` to capture data. Refer to ``fastcard/README.md`` for
 installation instructions.
 
 Usage
 -----
-A command-line interface (CLI) is available through the `thrifty` command. Run
-`thrifty help` for a summary of the modules that are available through the CLI.
+A command-line interface (CLI) is available through the ``thrifty`` command. Run
+``thrifty help`` for a summary of the modules that are available through the CLI.
 
 Typical CLI workflow::
 
@@ -56,7 +57,7 @@ Typical CLI workflow::
     $ thrifty clock_sync rx.toads rx.match
 
 
-Alternatively, use the Makefile:
+Alternatively, use the Makefile::
 
     cd example/
     vim thrifty.cfg   # edit config
