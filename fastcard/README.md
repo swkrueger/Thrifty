@@ -39,14 +39,15 @@ On Raspberry Pi 3, replace `cmake ..` with:
 Refer to `fastcard --help`.
 
 Examples:
+
  - Read samples directly from RTL-SDR (`-i rtlsdr`), output carrier detections to `rx.card` (`-o rx.card`), set carrier detection threshold to a constant of 40:
 
-       fastcard -i rtlsdr -o rx.card -t 40
+    fastcard -i rtlsdr -o rx.card -t 40
 
  - Read raw data from a file:
 
-       fastcard -i data.bin -o rx.card -t 40
+    fastcard -i data.bin -o rx.card -t 40
 
  - Pipe data from `rtl_sdr` instead of reading directly from the SDR using librtlsdr:
 
-       rtl_sdr -f 443.05e6 -s 2.4e6 -g 5 | fastcard -i - -o rx.card
+    rtl_sdr -f 443.05e6 -s 2.4e6 -g 5 | fastcard -i - -o rx.card
