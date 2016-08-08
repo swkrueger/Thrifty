@@ -79,7 +79,7 @@ Cookbook:
 
 For advanced use cases, use the thrifty API from Python or IPython, e.g.:
 
-.. highlight:: python
+.. code-block:: python
 
     """Plot histogram of SoA offsets for all detections from TX #0."""
     
