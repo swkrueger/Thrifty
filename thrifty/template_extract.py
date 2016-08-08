@@ -65,6 +65,7 @@ def plot(signal, template, offset):
     xdata = np.arange(len(template))
     plt.plot(xdata, signal, '.-')
     plt.plot(xdata - offset, template, '.-')
+    plt.savefig('extract.pdf', format='pdf')
     plt.show()
 
 

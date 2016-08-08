@@ -68,8 +68,8 @@ def match_toads(toads, window, min_match=2):
                 logging.warning("Multiple detections for RX %d and TX %d: "
                                 "detection #%d and #%d collides.",
                                 toads[j].txid, toads[j].rxid, prev, j)
-                prev_ampl = toads[prev].soa.energy
-                this_ampl = toads[j].soa.energy
+                prev_ampl = toads[prev].corr_info.energy
+                this_ampl = toads[j].corr_info.energy
                 k = prev if prev_ampl > this_ampl else j
             else:
                 k = j

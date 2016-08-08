@@ -39,7 +39,7 @@ def search(fft, initial_chip_rate, bit_length, code_index, sample_rate):
                                   method='Nelder-Mead',
                                   options={'xtol': 100, 'disp': True})
 
-    return res.x
+    return res.x[0]
 
 
 def _match(fft, sps, bit_length, code_index):
@@ -74,8 +74,9 @@ def _plot(fft, chip_rate, bit_length, code_index, sample_rate):
     signal = np.fft.ifft(fft)
     start = corr_info.sample
     plt.plot(np.abs(signal[start:start+len(template)]))
-    scaled_template = (template + 1) / 2 * np.max(signal)
+    scaled_template = (template + 1) / 2 * np.max(np.abs(signal)) * 0.9
     plt.plot(np.arange(len(template))-corr_info.offset, scaled_template)
+    plt.savefig('chip_rate_search.pdf', format='pdf')
     plt.show()
 
 

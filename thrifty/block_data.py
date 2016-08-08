@@ -117,11 +117,11 @@ def card_reader(stream):
     """
     while True:
         line = stream.readline()
-        if line == '':
+        if len(line) == 0:
             break
-        if line[0] == '#':
+        if line[0] == '#' or line[0] == '\n':
             continue
-        if line.startswith('Using Volk machine:'):
+        if line.startswith('Using Volk machine:') or line.startswith('linux;'):
             continue
         timestamp, idx, encoded = line.rstrip('\n').split(' ')
         raw = np.fromstring(base64.b64decode(encoded), dtype='uint8')

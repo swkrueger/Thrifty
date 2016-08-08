@@ -17,7 +17,7 @@ from thrifty import toads_data
 
 
 def plot(soa1, residuals, discontinuities, avg_snr=None):
-    s2m = 3e8 / 2.2e6  # FIXME
+    s2m = 3e8 / 2.4e6  # FIXME
 
     print("residuals: std dev = {:.01f} m; max = {:.01f} m; "
           "avg corr snr = {:.01f}"
@@ -49,7 +49,8 @@ def plot(soa1, residuals, discontinuities, avg_snr=None):
     plt.tight_layout()
 
     plt.subplots_adjust(top=0.90)
-    # plt.savefig('clocksync.pdf', format='pdf')
+    plt.savefig('clocksync.pdf', format='pdf')
+    plt.savefig('clocksync.png', format='png')
     plt.show()
 
 
@@ -125,6 +126,26 @@ def sync(soa, deg=2):
     return coef, residuals
 
 
+# def reldist(coefs, detections, matches):
+#     coef = coefs[0]
+#     matches = np.array([x for x in matches
+#                         if sum([y != -1 for y in x]) == 2
+#                         and detections['txid'][x[0]] == 1])
+#     soa = detections['soa'][matches]
+#     soa1, soa2 = soa[:, 0], soa[:, 1]
+#     sdoa = soa2 - soa1
+#     sync_func = np.poly1d(coef)
+#     ref = sync_func(soa1)
+#     relsoa = soa2 - ref
+#     np.set_printoptions(threshold=np.inf)
+#     print(np.column_stack([sdoa, ref, relsoa]))
+# 
+#     plt.plot(relsoa)
+#     plt.savefig('reldist.pdf', format='pdf')
+#     plt.savefig('reldist.png', format='png')
+#     plt.show()
+
+
 def _main():
     import argparse
 
@@ -152,6 +173,7 @@ def _main():
     matches = matchmaker.load_matches(args.matches)
 
     clock_sync(detections, matches, args.beacon_id)
+    # reldist(coefs, detections, matches)
 
 if __name__ == '__main__':
     _main()

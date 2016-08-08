@@ -80,7 +80,7 @@ def _main():
 
     for rxid, txid, data in split_rxtx(detections):
         print("# Stats for RX #{}'s detections of TX #{}'s transmissions:\n"
-              .format(txid, rxid))
+              .format(rxid, txid))
         print_stats(data)
         print("\n")
 
