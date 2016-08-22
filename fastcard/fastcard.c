@@ -565,7 +565,7 @@ bool detect_carrier(carrier_detection_t *d) {
     }
 #endif
 
-    float noise_power = (sum - max) / (block_size - 1);
+    float noise_power = (sum == 0) ? 0 : (sum - max) / (block_size - 1);
     float threshold = threshold_constant + threshold_snr * sqrt(noise_power);
 
     if (sqrt(max) > threshold) {
