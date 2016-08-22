@@ -91,7 +91,7 @@ char *wisdom_file = "fastcard.fftw_wisdom";
 uint16_t *raw_samples;
 fc_complex *samples;
 fc_complex *fft;
-float *fft_mag;
+float *fft_mag_sqr;
 fc_complex lut[0x10000];
 char *base64;
 
@@ -366,13 +366,16 @@ void init_buffers() {
     raw_samples = (uint16_t*) malloc(block_size * sizeof(uint16_t));
     for (size_t i = 0; i < block_size; ++i) raw_samples[i] = 127;
 
-    // size_t alignment = volk_get_alignment();
-    // fft_mag = (fc_complex*) volk_malloc(block_size * sizeof(fc_complex), alignment);
-    fft_mag = (float*) malloc(block_size * sizeof(float));
+#ifdef USE_VOLK
+    size_t alignment = volk_get_alignment();
+    fft_mag_sqr = (float*) volk_malloc(block_size * sizeof(float), alignment);
+#else
+    fft_mag_sqr = (float*) malloc(block_size * sizeof(float), alignment);
+#endif
 
     base64 = (char*) malloc((2*block_size+2)/3*4 + 1);
 
-    if (raw_samples == NULL || fft_mag == NULL || base64 == NULL) {
+    if (raw_samples == NULL || fft_mag_sqr == NULL || base64 == NULL) {
         fprintf(stderr, "init buffers failed\n");
         exit(1);
     }
@@ -385,7 +388,7 @@ void init_buffers() {
 void free_buffers() {
     free_fft();
     free(raw_samples);
-    free(fft_mag);
+    volk_free(fft_mag_sqr);
     free(base64);
 }
 
@@ -523,50 +526,52 @@ bool detect_carrier(carrier_detection_t *d) {
 #ifdef USE_VOLK
     float sum = 0; // todo: volk_malloc
     if (threshold_snr == 0) {
-        volk_32fc_magnitude_32f_u(
-                fft_mag + carrier_freq_min,
+        volk_32fc_magnitude_squared_32f_u(
+                fft_mag_sqr + carrier_freq_min,
                 fft + carrier_freq_min,
                 carrier_freq_max - carrier_freq_min + 1);
     } else {
-        volk_32fc_magnitude_32f_u(fft_mag, fft, block_size);
-        volk_32f_accumulator_s32f(&sum, fft_mag, block_size);
+        volk_32fc_magnitude_squared_32f_a(fft_mag_sqr, fft, block_size);
+        volk_32f_accumulator_s32f(&sum, fft_mag_sqr, block_size);
     }
+
+    // volk_32fc_magnitude_squared_32f is faster than volk_32fc_magnitude_32f
 
     uint16_t argmax; // todo: volk_malloc
     volk_32f_index_max_16u(
             &argmax,
-            fft_mag + carrier_freq_min,
+            fft_mag_sqr + carrier_freq_min,
             carrier_freq_max - carrier_freq_min + 1);
     argmax += carrier_freq_min;
-    float max = fft_mag[argmax];
+    float max = fft_mag_sqr[argmax];
 
 #else
     for (int i = 0; i < block_size; ++i) {
-        fft_mag[i] = cabsf(fft[i]);
+        fft_mag_sqr[i] = fft[i] * conj(fft[i]);
     }
 
     float sum = 0;
     for (int i = 0; i < block_size; ++i) {
-        sum += fft_mag[i];
+        sum += fft_mag_sqr[i];
     }
 
     float max = 0;
     int argmax;
     for (int i = carrier_freq_min; i <= carrier_freq_max; ++i) {
-        if (fft_mag[i] > max) {
+        if (fft_mag_sqr[i] > max) {
             argmax = i;
-            max = fft_mag[i];
+            max = fft_mag_sqr[i];
         }
     }
 #endif
 
-    float mean = sum / block_size;
-    float threshold = threshold_constant + threshold_snr * mean;
+    float noise_power = (sum - max) / (block_size - 1);
+    float threshold = threshold_constant + threshold_snr * sqrt(noise_power);
 
-    if (max > threshold) {
+    if (sqrt(max) > threshold) {
         if (d != NULL) {
             d->argmax = argmax;
-            d->max = max;
+            d->max = sqrt(max);  // power to amplitude
             d->threshold = threshold;
         }
         return true;

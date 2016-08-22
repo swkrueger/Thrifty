@@ -30,7 +30,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
 # the version number
 set (FASTCARD_VERSION_MAJOR 0)
-set (FASTCARD_VERSION_MINOR 3)
+set (FASTCARD_VERSION_MINOR 4)
 
 # use C99
 add_definitions(-std=c99)
