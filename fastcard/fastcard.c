@@ -91,7 +91,7 @@ char *wisdom_file = "fastcard.fftw_wisdom";
 uint16_t *raw_samples;
 fc_complex *samples;
 fc_complex *fft;
-float *fft_mag_sqr;
+float *fft_power;
 fc_complex lut[0x10000];
 char *base64;
 
@@ -368,14 +368,14 @@ void init_buffers() {
 
 #ifdef USE_VOLK
     size_t alignment = volk_get_alignment();
-    fft_mag_sqr = (float*) volk_malloc(block_size * sizeof(float), alignment);
+    fft_power = (float*) volk_malloc(block_size * sizeof(float), alignment);
 #else
-    fft_mag_sqr = (float*) malloc(block_size * sizeof(float), alignment);
+    fft_power = (float*) malloc(block_size * sizeof(float), alignment);
 #endif
 
     base64 = (char*) malloc((2*block_size+2)/3*4 + 1);
 
-    if (raw_samples == NULL || fft_mag_sqr == NULL || base64 == NULL) {
+    if (raw_samples == NULL || fft_power == NULL || base64 == NULL) {
         fprintf(stderr, "init buffers failed\n");
         exit(1);
     }
@@ -388,7 +388,7 @@ void init_buffers() {
 void free_buffers() {
     free_fft();
     free(raw_samples);
-    volk_free(fft_mag_sqr);
+    volk_free(fft_power);
     free(base64);
 }
 
@@ -519,6 +519,7 @@ typedef struct {
     unsigned int argmax;
     float max;
     float threshold;
+    float noise;
 } carrier_detection_t;
 
 bool detect_carrier(carrier_detection_t *d) {
@@ -527,12 +528,12 @@ bool detect_carrier(carrier_detection_t *d) {
     float sum = 0; // todo: volk_malloc
     if (threshold_snr == 0) {
         volk_32fc_magnitude_squared_32f_u(
-                fft_mag_sqr + carrier_freq_min,
+                fft_power + carrier_freq_min,
                 fft + carrier_freq_min,
                 carrier_freq_max - carrier_freq_min + 1);
     } else {
-        volk_32fc_magnitude_squared_32f_a(fft_mag_sqr, fft, block_size);
-        volk_32f_accumulator_s32f(&sum, fft_mag_sqr, block_size);
+        volk_32fc_magnitude_squared_32f_a(fft_power, fft, block_size);
+        volk_32f_accumulator_s32f(&sum, fft_power, block_size);
     }
 
     // volk_32fc_magnitude_squared_32f is faster than volk_32fc_magnitude_32f
@@ -540,39 +541,40 @@ bool detect_carrier(carrier_detection_t *d) {
     uint16_t argmax; // todo: volk_malloc
     volk_32f_index_max_16u(
             &argmax,
-            fft_mag_sqr + carrier_freq_min,
+            fft_power + carrier_freq_min,
             carrier_freq_max - carrier_freq_min + 1);
     argmax += carrier_freq_min;
-    float max = fft_mag_sqr[argmax];
+    float max = fft_power[argmax];
 
 #else
     for (int i = 0; i < block_size; ++i) {
-        fft_mag_sqr[i] = fft[i] * conj(fft[i]);
+        fft_power[i] = fft[i] * conj(fft[i]);
     }
 
     float sum = 0;
     for (int i = 0; i < block_size; ++i) {
-        sum += fft_mag_sqr[i];
+        sum += fft_power[i];
     }
 
     float max = 0;
     int argmax;
     for (int i = carrier_freq_min; i <= carrier_freq_max; ++i) {
-        if (fft_mag_sqr[i] > max) {
+        if (fft_power[i] > max) {
             argmax = i;
-            max = fft_mag_sqr[i];
+            max = fft_power[i];
         }
     }
 #endif
 
     float noise_power = (sum == 0) ? 0 : (sum - max) / (block_size - 1);
-    float threshold = threshold_constant + threshold_snr * sqrt(noise_power);
+    float threshold = threshold_constant + threshold_snr * noise_power;
 
-    if (sqrt(max) > threshold) {
+    if (max > threshold) {
         if (d != NULL) {
             d->argmax = argmax;
-            d->max = sqrt(max);  // power to amplitude
+            d->max = max;
             d->threshold = threshold;
+            d->noise = noise_power;
         }
         return true;
     }
@@ -617,8 +619,9 @@ void process(FILE* in, FILE* out) {
             //       being processed.
             gettimeofday(&ts, NULL);
 
-            info_out("block #%lu: mag[%d] = %.1f (thresh = %.1f)\n",
-                     i, d.argmax, d.max, d.threshold);
+            info_out("block #%lu: mag[%d] = %.1f (thresh = %.1f, noise = %.1f)\n",
+                     i, d.argmax, sqrt(d.max),
+                     sqrt(d.threshold), sqrt(d.noise));
 
             if (out != NULL) {
                 base64_encode();
