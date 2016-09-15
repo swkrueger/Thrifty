@@ -11,6 +11,7 @@ import sys
 import numpy as np
 
 from thrifty import settings
+from thrifty import signal
 from thrifty import toads_data
 from thrifty import util
 from thrifty.block_data import block_reader, card_reader
@@ -41,8 +42,8 @@ def detect(blocks, block_len, history_len,
 
     for timestamp, block_idx, block in blocks:
         assert len(block) == block_len
-        fft = np.fft.fft(block)
-        shifted_fft, carrier_info = sync(fft)
+        block_signal = signal.Signal(block)
+        shifted_fft, carrier_info = sync(block_signal)
 
         if shifted_fft is not None:  # detected
             detected, corr_info, _ = soa_estimate(shifted_fft)

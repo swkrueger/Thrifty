@@ -9,6 +9,7 @@ import logging
 
 import numpy as np
 
+from thrifty import signal
 from thrifty import toads_data
 
 
@@ -65,7 +66,7 @@ def make_despreader(template, block_len):
 
     def _despread(fft):
         corr_fft = fft * template_fft.conjugate()
-        corr_full = np.fft.ifft(corr_fft)
+        corr_full = signal.compute_ifft(corr_fft)
         corr = corr_full[:corr_len]
         return corr
 

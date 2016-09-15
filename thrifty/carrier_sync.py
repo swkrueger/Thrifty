@@ -25,15 +25,16 @@ from scipy.optimize import curve_fit
 
 from thrifty import toads_data
 from thrifty import carrier_detect
+from thrifty.signal import Signal
 
 
-def sync(fft, detector, interpolator, shifter):
+def sync(signal, detector, interpolator, shifter):
     """Connect carrier detector, interpolator, and frequency shifter.
 
     Parameters
     ----------
-    fft : :class:`numpy.ndarray`
-        FFT of data to be synchronized.
+    signal : :class:`signal.Signal`
+        Signal to be synchronized.
     detector : callable -> (bool, int, float)
         Threshold detection algorithm that returns three values:
          - detected: detection verdict.
@@ -49,14 +50,14 @@ def sync(fft, detector, interpolator, shifter):
     shifted_fft : :class:`numpy.ndarray` or None
     info : :class:`toads_data.CarrierSyncInfo`
     """
-    fft_mag = np.abs(fft)
+    fft_mag = np.abs(signal.fft)
     detected, peak_idx, peak_energy = detector(fft_mag)
     offset = 0
     if detected:
         if interpolator is not None:
             offset = interpolator(fft_mag, peak_idx)
         # shifted_fft = shifter(fft, -(peak_idx+offset))
-        shifted_fft = shifter(fft, -peak_idx, -offset)
+        shifted_fft = shifter(signal, -peak_idx, -offset)
         peak_energy = np.abs(shifted_fft[0])
     else:
         shifted_fft = None
@@ -104,6 +105,7 @@ def make_syncer(thresh_coeffs, window, block_len, carrier_len,
         return carrier_detect.detect(fft_mag, thresh_coeffs, window, weights)
     interpolator = make_dirichlet_interpolator(interpol_width,
                                                block_len, carrier_len)
+    # interpolator = make_polyfit_interpolator(4)
     shifter = freq_shift
     return lambda fft: sync(fft, _detector, interpolator, shifter)
 
@@ -191,7 +193,7 @@ def make_polyfit_interpolator(width):
     return _interpolator
 
 
-def freq_shift(fft, shift, offset):
+def freq_shift(signal, shift, offset):
     """Shift a signal in the frequency domain by a fractional number of bins.
 
     The shift theorem is used to shift frequency in the time-domain.
@@ -199,20 +201,21 @@ def freq_shift(fft, shift, offset):
 
     Parameters
     ----------
-    fft : array_like
+    fft : signal.Signal
     shift : float
         Number of (potentially fractional) shift to shift the signal by.
     """
-    if isinstance(shift, int) or shift.is_integer():
-        shifted_fft = np.roll(fft, shift)
+    if np.abs(offset) < 1e-3:
+        shifted_fft = np.roll(signal.fft, shift)
     else:
-        freqs = np.arange(len(fft)) * 1. / len(fft) - 0.5
+        freqs = np.arange(len(signal)) * 1. / len(signal) - 0.5
         shift = np.exp(2j * np.pi * (shift + offset) * freqs)
-        shifted_time = np.fft.ifft(fft) * shift
-        shifted_fft = np.fft.fft(shifted_time)
+        shifted_time = signal.samples * shift
+        shifted_signal = Signal(shifted_time)
+        shifted_fft = shifted_signal.fft
     return shifted_fft
 
 
-def freq_shift_integer(fft, shift, offset):
-    shifted_fft = np.roll(fft, shift)
+def freq_shift_integer(signal, shift, offset):
+    shifted_fft = np.roll(signal.fft, shift)
     return shifted_fft
