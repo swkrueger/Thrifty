@@ -112,16 +112,21 @@ def _main():
                         help="input data is raw binary data")
     parser.add_argument('--quiet', dest='quiet', action='store_true',
                         help="do not write anything to standard output")
-    parser.add_argument('-o', '--output', dest='output',
-                        type=argparse.FileType('wb'), default='-',
-                        help="Output file (.toad) ('-' for stdout)")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-o', '--output', dest='output',
+                       type=argparse.FileType('wb'), default='-',
+                       help="Output file (.toad) ('-' for stdout)")
+    group.add_argument('-a', '--append', dest='append',
+                       type=argparse.FileType('ab'),
+                       help="Output file to append to (.toad)")
 
     setting_keys = ['sample_rate', 'block_size', 'block_history',
                     'carrier_window', 'carrier_threshold',
                     'corr_threshold', 'template']
     config, args = settings.load_args(parser, setting_keys)
 
-    info_out = sys.stderr if args.output == sys.stdout else sys.stdout
+    output_file = args.output if args.append is None else args.append
+    info_out = sys.stderr if output_file == sys.stdout else sys.stdout
     bin_freq = config.sample_rate / config.block_size
     window = normalize_freq_range(config.carrier_window, bin_freq)
 
@@ -148,7 +153,7 @@ def _main():
 
     for detected, result in detections:
         if detected:
-            print(result.serialize(), file=args.output)
+            print(result.serialize(), file=output_file)
 
         if not args.quiet:
             # Calculate time interval between subsequent transmissions
