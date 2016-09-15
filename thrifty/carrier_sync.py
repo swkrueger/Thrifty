@@ -57,8 +57,7 @@ def sync(signal, detector, interpolator, shifter):
     if detected:
         if interpolator is not None:
             offset = interpolator(fft_mag, peak_idx)
-        # shifted_fft = shifter(fft, -(peak_idx+offset))
-        shifted_fft = shifter(signal, -peak_idx, -offset)
+        shifted_fft = shifter(signal, -(peak_idx+offset))
         peak_mag = np.abs(shifted_fft[0])
     else:
         shifted_fft = None
@@ -193,7 +192,7 @@ def make_polyfit_interpolator(width):
     return _interpolator
 
 
-def freq_shift(signal, shift, offset):
+def freq_shift(signal, shift):
     """Shift a signal in the frequency domain by a fractional number of bins.
 
     The shift theorem is used to shift frequency in the time-domain.
@@ -205,17 +204,16 @@ def freq_shift(signal, shift, offset):
     shift : float
         Number of (potentially fractional) shift to shift the signal by.
     """
-    if np.abs(offset) < 1e-3:
-        shifted_fft = np.roll(signal.fft, shift)
-    else:
-        freqs = np.arange(len(signal)) * 1. / len(signal) - 0.5
-        shift = np.exp(2j * np.pi * (shift + offset) * freqs)
-        shifted_time = signal.samples * shift
-        shifted_signal = Signal(shifted_time)
-        shifted_fft = shifted_signal.fft
+    freqs = np.arange(len(signal)) * 1. / len(signal) - 0.5
+    shift_signal = np.exp(2j * np.pi * shift * freqs)
+    shifted_time = signal.samples * shift_signal
+    shifted_signal = Signal(shifted_time)
+    shifted_fft = shifted_signal.fft
     return shifted_fft
 
 
-def freq_shift_integer(signal, shift, offset):
-    shifted_fft = np.roll(signal.fft, shift)
+def freq_shift_integer(signal, shift):
+    """Shift a signal by an integer number of samples."""
+    int_shift = int(np.round(shift))
+    shifted_fft = np.roll(signal.fft, int_shift)
     return shifted_fft

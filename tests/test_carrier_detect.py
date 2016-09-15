@@ -57,7 +57,7 @@ def test_detect_window(freq_min, freq_max, carrier_freq, expected_detected):
     block_len = 8192
     carrier_len = 2085
     sample_rate = 2.2e6
-    threshold = (500.0, 0.0, 0.0)
+    threshold = (500.0**2, 0.0, 0.0)
 
     bin_freq = sample_rate / block_len
     bin_min, bin_max = int(freq_min / bin_freq), int(freq_max / bin_freq)
@@ -67,7 +67,7 @@ def test_detect_window(freq_min, freq_max, carrier_freq, expected_detected):
     block = np.concatenate([carrier, np.zeros(block_len - carrier_len)])
     fft_mag = np.abs(np.fft.fft(block))
 
-    detected, _, _ = carrier_detect.detect(
+    detected, _, _, _ = carrier_detect.detect(
         fft_mag, threshold, (bin_min, bin_max))
     assert detected == expected_detected
 
@@ -81,6 +81,6 @@ FILTER_TESTDATA = [
 @pytest.mark.parametrize("fft_mag, peak_filter, expected", FILTER_TESTDATA)
 def test_peak_filter(fft_mag, peak_filter, expected):
     """Test detect() with a peak filter."""
-    _, peak_idx, peak_energy = carrier_detect.detect(
-        fft_mag, (0, 0, 0), None, peak_filter)
+    _, peak_idx, peak_energy, _ = carrier_detect.detect(
+        np.array(fft_mag), (0, 0, 0), None, peak_filter)
     assert (peak_idx, peak_energy) == expected

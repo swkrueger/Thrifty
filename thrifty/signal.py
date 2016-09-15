@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import numpy as np
 import pyfftw
 
 pyfftw.interfaces.cache.enable()
@@ -22,6 +23,11 @@ def compute_ifft(fft):
     # return np.fft.ifft(fft)
 
 
+def power(samples):
+    """Calculate a complex signal's power."""
+    return np.mean(samples * np.conj(samples)).real
+
+
 class Signal(object):
     """Representation of signal in time-domain and frequency-domain, with
     on-demand conversion between the two domains."""
@@ -36,7 +42,7 @@ class Signal(object):
         if samples is not None:
             self._length = len(samples)
         elif fft is not None:
-            self._length = len(samples)
+            self._length = len(self._fft)
         else:
             self._length = 0
 
@@ -56,3 +62,11 @@ class Signal(object):
 
     def __len__(self):
         return self._length
+
+    @property
+    def rms(self):
+        """Calculate signal's root mean square value."""
+        if self._samples is not None:
+            return np.sqrt(power(self._samples))
+        elif self._fft is not None:
+            return np.sqrt(power(self._fft)) / len(self._fft)

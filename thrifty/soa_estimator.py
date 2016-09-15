@@ -39,20 +39,22 @@ def make_soa_estimator(template, thresh_coeffs, block_len, history_len):
     """
     despread = make_despreader(template, block_len)
     template_len = len(template)
+    template_energy = np.sum(template**2)
     window = calculate_window(block_len, history_len, template_len)
 
     def _soa_estimate(fft):
         assert len(fft) == block_len
         corr = despread(fft)
         corr_mag = np.abs(corr)
-        detected, peak_idx, peak_ampl = peak_detect(
-            corr_mag, thresh_coeffs, window)
+        noise_estimator = lambda x: estimate_noise(fft, template_energy, x)
+        detected, peak_idx, peak_ampl, noise_rms = peak_detect(
+            corr_mag, thresh_coeffs, window, noise_estimator)
         if detected:
             offset = parabolic_interpolation(corr_mag, peak_idx)
         else:
             offset = 0
-        noise = np.mean(corr_mag)
-        info = toads_data.CorrDetectionInfo(peak_idx, offset, peak_ampl, noise)
+        info = toads_data.CorrDetectionInfo(peak_idx, offset,
+                                            peak_ampl, noise_rms)
         return detected, info, corr
 
     return _soa_estimate
@@ -95,24 +97,37 @@ def calculate_window(block_len, history_len, template_len):
     return start, stop
 
 
-def peak_detect(corr_mag, thresh_coeffs, window):
+def peak_detect(corr_mag, thresh_coeffs, window, noise_estimator):
     """Simple threshold detector to determine presence of template signal."""
     start, stop = window
-    threshold = calculate_threshold(corr_mag, thresh_coeffs)
     peak_idx = np.argmax(corr_mag[start:stop]) + start
     peak_ampl = corr_mag[peak_idx]
+    if noise_estimator is not None:
+        noise_rms = noise_estimator(peak_ampl)
+    else:
+        noise_rms = 0
+    threshold = calculate_threshold(thresh_coeffs, corr_mag, noise_rms)
     detected = peak_ampl > threshold
 
-    return detected, peak_idx, peak_ampl
+    return detected, peak_idx, peak_ampl, noise_rms
 
 
-def calculate_threshold(corr_mag, thresh_coeffs):
+def estimate_noise(fft, template_energy, peak_mag):
+    """Estimate noise from signal's rms / power."""
+    # Can be sped up by using RMS value of signal before carrier recovery.
+    signal_energy = signal.power(fft)
+    # alternative: signal_energy = np.sum(np.abs(np.fft.ifft(fft))**2)
+    noise_power = (signal_energy * template_energy - peak_mag) / len(fft)
+    return np.sqrt(noise_power)
+
+
+def calculate_threshold(thresh_coeffs, corr_mag, noise_rms):
     """Calculate detector threshold given the formula's coefficients."""
     thresh_const, thresh_snr, thresh_stddev = thresh_coeffs
     stddev = np.std(corr_mag) if thresh_stddev else 0
-    noise = np.mean(corr_mag)
-    thresh = thresh_const + thresh_snr * noise + thresh_stddev * stddev
-    return thresh
+    thresh = (thresh_const + thresh_snr * noise_rms**2
+              + thresh_stddev * stddev**2)
+    return np.sqrt(thresh)
 
 
 def parabolic_interpolation(corr_mag, peak_idx):

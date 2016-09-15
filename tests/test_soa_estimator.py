@@ -97,8 +97,8 @@ def test_detect(idx, corr_len, window, expected):
     corr_mag[idx] = 100
     thresh_coeffs = (99, 0, 0)
 
-    detected, peak_idx, peak_ampl = soa_estimator.peak_detect(
-        corr_mag, thresh_coeffs, window)
+    detected, peak_idx, peak_ampl, _ = soa_estimator.peak_detect(
+        corr_mag, thresh_coeffs, window, None)
 
     assert detected == expected
     if expected:
