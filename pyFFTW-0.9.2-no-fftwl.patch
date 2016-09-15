@@ -1,0 +1,232 @@
+--- pyFFTW-0.9.2/pyfftw/pyfftw.pyx	2013-09-26 09:23:01.000000000 +0200
++++ pyFFTW-0.9.2_mod/pyfftw/pyfftw.pyx	2016-09-15 14:16:28.157464192 +0200
+@@ -77,18 +77,6 @@
+             <cfloat *>_in, <cfloat *>_out,
+             sign, flags)
+ 
+-# Complex long double precision
+-cdef void* _fftwl_plan_guru_dft(
+-            int rank, fftw_iodim *dims,
+-            int howmany_rank, fftw_iodim *howmany_dims,
+-            void *_in, void *_out,
+-            int sign, int flags):
+-
+-    return <void *>fftwl_plan_guru_dft(rank, dims,
+-            howmany_rank, howmany_dims,
+-            <clongdouble *>_in, <clongdouble *>_out,
+-            sign, flags)
+-
+ # real to complex double precision
+ cdef void* _fftw_plan_guru_dft_r2c(
+             int rank, fftw_iodim *dims,
+@@ -113,18 +101,6 @@
+             <float *>_in, <cfloat *>_out,
+             flags)
+ 
+-# real to complex long double precision
+-cdef void* _fftwl_plan_guru_dft_r2c(
+-            int rank, fftw_iodim *dims,
+-            int howmany_rank, fftw_iodim *howmany_dims,
+-            void *_in, void *_out,
+-            int sign, int flags):
+-
+-    return <void *>fftwl_plan_guru_dft_r2c(rank, dims,
+-            howmany_rank, howmany_dims,
+-            <long double *>_in, <clongdouble *>_out,
+-            flags)
+-
+ # complex to real double precision
+ cdef void* _fftw_plan_guru_dft_c2r(
+             int rank, fftw_iodim *dims,
+@@ -149,18 +125,6 @@
+             <cfloat *>_in, <float *>_out,
+             flags)
+ 
+-# complex to real long double precision
+-cdef void* _fftwl_plan_guru_dft_c2r(
+-            int rank, fftw_iodim *dims,
+-            int howmany_rank, fftw_iodim *howmany_dims,
+-            void *_in, void *_out,
+-            int sign, int flags):
+-
+-    return <void *>fftwl_plan_guru_dft_c2r(rank, dims,
+-            howmany_rank, howmany_dims,
+-            <clongdouble *>_in, <long double *>_out,
+-            flags)
+-
+ #    Executors
+ #    =========
+ #
+@@ -176,12 +140,6 @@
+     fftwf_execute_dft(<fftwf_plan>_plan, 
+             <cfloat *>_in, <cfloat *>_out)
+ 
+-# Complex long double precision
+-cdef void _fftwl_execute_dft(void *_plan, void *_in, void *_out) nogil:
+-
+-    fftwl_execute_dft(<fftwl_plan>_plan, 
+-            <clongdouble *>_in, <clongdouble *>_out)
+-
+ # real to complex double precision
+ cdef void _fftw_execute_dft_r2c(void *_plan, void *_in, void *_out) nogil:
+ 
+@@ -194,12 +152,6 @@
+     fftwf_execute_dft_r2c(<fftwf_plan>_plan, 
+             <float *>_in, <cfloat *>_out)
+ 
+-# real to complex long double precision
+-cdef void _fftwl_execute_dft_r2c(void *_plan, void *_in, void *_out) nogil:
+-
+-    fftwl_execute_dft_r2c(<fftwl_plan>_plan, 
+-            <long double *>_in, <clongdouble *>_out)
+-
+ # complex to real double precision
+ cdef void _fftw_execute_dft_c2r(void *_plan, void *_in, void *_out) nogil:
+ 
+@@ -212,12 +164,6 @@
+     fftwf_execute_dft_c2r(<fftwf_plan>_plan, 
+             <cfloat *>_in, <float *>_out)
+ 
+-# complex to real long double precision
+-cdef void _fftwl_execute_dft_c2r(void *_plan, void *_in, void *_out) nogil:
+-
+-    fftwl_execute_dft_c2r(<fftwl_plan>_plan, 
+-            <clongdouble *>_in, <long double *>_out)
+-
+ #    Destroyers
+ #    ==========
+ #
+@@ -231,11 +177,6 @@
+ 
+     fftwf_destroy_plan(<fftwf_plan>_plan)
+ 
+-# Long double precision
+-cdef void _fftwl_destroy_plan(void *_plan):
+-
+-    fftwl_destroy_plan(<fftwl_plan>_plan)
+-
+ 
+ # Function lookup tables
+ # ======================
+@@ -247,13 +188,10 @@
+ 
+     planners[0] = <fftw_generic_plan_guru>&_fftw_plan_guru_dft
+     planners[1] = <fftw_generic_plan_guru>&_fftwf_plan_guru_dft
+-    planners[2] = <fftw_generic_plan_guru>&_fftwl_plan_guru_dft
+     planners[3] = <fftw_generic_plan_guru>&_fftw_plan_guru_dft_r2c
+     planners[4] = <fftw_generic_plan_guru>&_fftwf_plan_guru_dft_r2c
+-    planners[5] = <fftw_generic_plan_guru>&_fftwl_plan_guru_dft_r2c
+     planners[6] = <fftw_generic_plan_guru>&_fftw_plan_guru_dft_c2r
+     planners[7] = <fftw_generic_plan_guru>&_fftwf_plan_guru_dft_c2r
+-    planners[8] = <fftw_generic_plan_guru>&_fftwl_plan_guru_dft_c2r
+ 
+ # Executor table (of size the number of executors)
+ cdef fftw_generic_execute executors[9]
+@@ -262,13 +200,10 @@
+ 
+     executors[0] = <fftw_generic_execute>&_fftw_execute_dft
+     executors[1] = <fftw_generic_execute>&_fftwf_execute_dft
+-    executors[2] = <fftw_generic_execute>&_fftwl_execute_dft
+     executors[3] = <fftw_generic_execute>&_fftw_execute_dft_r2c
+     executors[4] = <fftw_generic_execute>&_fftwf_execute_dft_r2c
+-    executors[5] = <fftw_generic_execute>&_fftwl_execute_dft_r2c
+     executors[6] = <fftw_generic_execute>&_fftw_execute_dft_c2r
+     executors[7] = <fftw_generic_execute>&_fftwf_execute_dft_c2r
+-    executors[8] = <fftw_generic_execute>&_fftwl_execute_dft_c2r
+ 
+ # Destroyer table (of size the number of destroyers)
+ cdef fftw_generic_destroy_plan destroyers[3]
+@@ -277,7 +212,6 @@
+ 
+     destroyers[0] = <fftw_generic_destroy_plan>&_fftw_destroy_plan
+     destroyers[1] = <fftw_generic_destroy_plan>&_fftwf_destroy_plan
+-    destroyers[2] = <fftw_generic_destroy_plan>&_fftwl_destroy_plan
+ 
+ 
+ # nthreads plan setters table
+@@ -288,8 +222,6 @@
+             <fftw_generic_plan_with_nthreads>&fftw_plan_with_nthreads)
+     nthreads_plan_setters[1] = (
+             <fftw_generic_plan_with_nthreads>&fftwf_plan_with_nthreads)
+-    nthreads_plan_setters[2] = (
+-            <fftw_generic_plan_with_nthreads>&fftwl_plan_with_nthreads)
+ 
+ # Set planner timelimits
+ cdef fftw_generic_set_timelimit set_timelimit_funcs[3]
+@@ -299,8 +231,6 @@
+             <fftw_generic_set_timelimit>&fftw_set_timelimit)
+     set_timelimit_funcs[1] = (
+             <fftw_generic_set_timelimit>&fftwf_set_timelimit)
+-    set_timelimit_funcs[2] = (
+-            <fftw_generic_set_timelimit>&fftwl_set_timelimit)
+ 
+ 
+ # Data validators table
+@@ -484,16 +414,13 @@
+ 
+ fftw_init_threads()
+ fftwf_init_threads()
+-fftwl_init_threads()
+ 
+ # Set the cleanup routine
+ cdef void _cleanup():
+     fftw_cleanup()
+     fftwf_cleanup()
+-    fftwl_cleanup()
+     fftw_cleanup_threads()
+     fftwf_cleanup_threads()
+-    fftwl_cleanup_threads()
+ 
+ Py_AtExit(_cleanup)
+ 
+@@ -1476,7 +1403,6 @@
+ 
+     fftw_export_wisdom(&count_char, <void *>&counter)
+     fftwf_export_wisdom(&count_char, <void *>&counterf)
+-    fftwl_export_wisdom(&count_char, <void *>&counterl)
+ 
+     cdef char* c_wisdom = <char *>malloc(sizeof(char)*(counter + 1))
+     cdef char* c_wisdomf = <char *>malloc(sizeof(char)*(counterf + 1))
+@@ -1492,7 +1418,6 @@
+ 
+     fftw_export_wisdom(&write_char_to_string, <void *>&c_wisdom_ptr)
+     fftwf_export_wisdom(&write_char_to_string, <void *>&c_wisdomf_ptr)
+-    fftwl_export_wisdom(&write_char_to_string, <void *>&c_wisdoml_ptr)
+ 
+     # Write the last byte as the null byte
+     c_wisdom[counter] = 0
+@@ -1532,13 +1457,11 @@
+ 
+     cdef char* c_wisdom = wisdom[0]
+     cdef char* c_wisdomf = wisdom[1]
+-    cdef char* c_wisdoml = wisdom[2]
+ 
+     cdef bint success = fftw_import_wisdom_from_string(c_wisdom)
+     cdef bint successf = fftwf_import_wisdom_from_string(c_wisdomf)
+-    cdef bint successl = fftwl_import_wisdom_from_string(c_wisdoml)
+ 
+-    return (success, successf, successl)
++    return (success, successf)
+ 
+ #def export_wisdom_to_files(
+ #        double_wisdom_file=None,
+@@ -1634,6 +1557,5 @@
+     '''
+     fftw_forget_wisdom()
+     fftwf_forget_wisdom()
+-    fftwl_forget_wisdom()
+ 
+ 
+--- pyFFTW-0.9.2/setup.py	2013-09-26 09:17:59.000000000 +0200
++++ pyFFTW-0.9.2_mod/setup.py	2016-09-15 14:04:03.021958761 +0200
+@@ -64,8 +64,8 @@
+     package_data['pyfftw'] = [
+             'libfftw3-3.dll', 'libfftw3l-3.dll', 'libfftw3f-3.dll']
+ else:
+-    libraries = ['fftw3', 'fftw3f', 'fftw3l', 'fftw3_threads', 
+-            'fftw3f_threads', 'fftw3l_threads']
++    libraries = ['fftw3', 'fftw3f', 'fftw3_threads', 
++            'fftw3f_threads']
+ 
+ class custom_build_ext(build_ext):
+     def finalize_options(self):
