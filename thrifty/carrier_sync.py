@@ -55,7 +55,8 @@ def sync(fft, detector, interpolator, shifter):
     if detected:
         if interpolator is not None:
             offset = interpolator(fft_mag, peak_idx)
-        shifted_fft = shifter(fft, -(peak_idx+offset))
+        # shifted_fft = shifter(fft, -(peak_idx+offset))
+        shifted_fft = shifter(fft, -peak_idx, -offset)
         peak_energy = np.abs(shifted_fft[0])
     else:
         shifted_fft = None
@@ -167,7 +168,30 @@ def make_dirichlet_interpolator(width, block_len, carrier_len):
     return _interpolator
 
 
-def freq_shift(fft, shift):
+def parabolic_interpolator(fft_mag, peak_idx):
+    """Estimate sub-bin carrier frequency by fitting a parabola."""
+    # pylint: disable=invalid-name
+    a, b, c = fft_mag[peak_idx-1], fft_mag[peak_idx], fft_mag[peak_idx+1]
+    offset = (c - a) / (4*b - 2*a - 2*c)
+    return offset
+
+
+def make_polyfit_interpolator(width):
+    """Estimate sub-bin carrier frequency by fitting a quadratic function with
+    polyfit."""
+
+    def _interpolator(fft_mag, peak_idx):
+        xdata = np.array(np.arange(-(width//2), width//2+1))
+        ydata = fft_mag[peak_idx + xdata]
+        coeffs = np.polyfit(xdata, ydata, 2)
+        offset = -coeffs[1] / coeffs[0] / 2
+
+        return offset
+
+    return _interpolator
+
+
+def freq_shift(fft, shift, offset):
     """Shift a signal in the frequency domain by a fractional number of bins.
 
     The shift theorem is used to shift frequency in the time-domain.
@@ -183,7 +207,12 @@ def freq_shift(fft, shift):
         shifted_fft = np.roll(fft, shift)
     else:
         freqs = np.arange(len(fft)) * 1. / len(fft) - 0.5
-        shift = np.exp(2j * np.pi * shift * freqs)
+        shift = np.exp(2j * np.pi * (shift + offset) * freqs)
         shifted_time = np.fft.ifft(fft) * shift
         shifted_fft = np.fft.fft(shifted_time)
+    return shifted_fft
+
+
+def freq_shift_integer(fft, shift, offset):
+    shifted_fft = np.roll(fft, shift)
     return shifted_fft
