@@ -35,11 +35,12 @@ def sync(signal, detector, interpolator, shifter):
     ----------
     signal : :class:`signal.Signal`
         Signal to be synchronized.
-    detector : callable -> (bool, int, float)
+    detector : callable -> (bool, int, float, float)
         Threshold detection algorithm that returns three values:
          - detected: detection verdict.
          - peak_idx: estimated position of carrier in FFT.
-         - peak_energy: estimated peak energy.
+         - peak_mag: estimated peak magnitude.
+         - noise_rms: estimated noise rms.
     interpolator : callable or None
         Fractional bin frequency estimation algorithm.
     shifter : callable
@@ -51,18 +52,17 @@ def sync(signal, detector, interpolator, shifter):
     info : :class:`toads_data.CarrierSyncInfo`
     """
     fft_mag = np.abs(signal.fft)
-    detected, peak_idx, peak_energy = detector(fft_mag)
+    detected, peak_idx, peak_mag, noise_rms = detector(fft_mag)
     offset = 0
     if detected:
         if interpolator is not None:
             offset = interpolator(fft_mag, peak_idx)
         # shifted_fft = shifter(fft, -(peak_idx+offset))
         shifted_fft = shifter(signal, -peak_idx, -offset)
-        peak_energy = np.abs(shifted_fft[0])
+        peak_mag = np.abs(shifted_fft[0])
     else:
         shifted_fft = None
-    noise = np.mean(fft_mag)
-    info = toads_data.CarrierSyncInfo(peak_idx, offset, peak_energy, noise)
+    info = toads_data.CarrierSyncInfo(peak_idx, offset, peak_mag, noise_rms)
     return shifted_fft, info
 
 
@@ -86,7 +86,7 @@ def make_syncer(thresh_coeffs, window, block_len, carrier_len,
         Size of data blocks.
     filter_len : int
         Size of matched filter, in samples, to apply to obtain a better
-        estimate of the peak's energy.
+        estimate of the peak's mag.
     carrier_len : int
         The length of the carrier transmission, in number of samples.
 

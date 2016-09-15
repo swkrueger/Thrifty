@@ -81,21 +81,29 @@ def detect(fft_mag, thresh_coeffs, window=None, peak_filter=None):
     -------
     detected : bool
     peak_idx : int
-    peak_energy : float
+    peak_mag : float
+    noise_rms : float
     """
 
-    threshold = _calculate_threshold(fft_mag, thresh_coeffs)
-    peak_idx, peak_energy = _window_peak(fft_mag, window, peak_filter)
-    detected = (peak_energy > threshold)
-    return detected, peak_idx, peak_energy
+    peak_idx, peak_mag = _window_peak(fft_mag, window, peak_filter)
+    noise_rms = _estimate_noise(fft_mag, peak_mag)
+    threshold = _calculate_threshold(fft_mag, thresh_coeffs, noise_rms)
+    detected = (peak_mag > threshold)
+    return detected, peak_idx, peak_mag, noise_rms
 
 
-def _calculate_threshold(fft_mag, thresh_coeffs):
+def _estimate_noise(fft_mag, peak_mag):
+    sum_ = np.sum(fft_mag**2)
+    noise_power = (sum_ - peak_mag**2) / (len(fft_mag) - 1)
+    return np.sqrt(noise_power)
+
+
+def _calculate_threshold(fft_mag, thresh_coeffs, noise_rms):
     thresh_const, thresh_snr, thresh_stddev = thresh_coeffs
     stddev = np.std(fft_mag) if thresh_stddev else 0
-    noise = np.mean(fft_mag)
-    thresh = thresh_const + thresh_snr * noise + thresh_stddev * stddev
-    return thresh
+    thresh = (thresh_const + thresh_snr * noise_rms**2
+              + thresh_stddev * stddev**2)
+    return np.sqrt(thresh)
 
 
 def _get_window(array, window):
@@ -119,11 +127,11 @@ def _window_peak(fft_mag, window, peak_filter):
         filter_delay = 0
 
     max_idx = np.argmax(mags)
-    peak_energy = mags[max_idx]
+    peak_mag = mags[max_idx]
 
     peak_idx = max_idx - filter_delay
     peak_idx += start_idx
     if peak_idx > len(fft_mag):
         peak_idx -= len(fft_mag)
 
-    return peak_idx, peak_energy
+    return peak_idx, peak_mag
