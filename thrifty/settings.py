@@ -92,6 +92,13 @@ DEFINITIONS = {
         'template.npy',
         "Load template from a Numpy .npy file"
     ),
+
+    'rxid': Definition(
+        ['--rxid', '-r'],
+        int,
+        -1,
+        "Unique identifier of this receiver"
+    ),
 }
 
 DEFAULT_CONFIG_PATH = 'thrifty.cfg'

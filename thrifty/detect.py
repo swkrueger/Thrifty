@@ -22,7 +22,7 @@ from thrifty.soa_estimator import make_soa_estimator
 
 def detect(blocks, block_len, history_len,
            carrier_len, carrier_thresh, carrier_window,
-           template, corr_thresh, yield_data=False):
+           template, corr_thresh, rxid=-1, yield_data=False):
     """Detect positioning signals and estimate sample-of-arrival.
 
     All-in-one signal detection and sample-of-arrival estimation. Find carrier,
@@ -52,7 +52,7 @@ def detect(blocks, block_len, history_len,
             detected, corr_info, soa = False, None, None
 
         result = toads_data.DetectionResult(timestamp, block_idx, soa,
-                                            carrier_info, corr_info)
+                                            carrier_info, corr_info, rxid)
         if yield_data:
             yield detected, result, shifted_fft, corr_info
         else:
@@ -122,7 +122,7 @@ def _main():
 
     setting_keys = ['sample_rate', 'block_size', 'block_history',
                     'carrier_window', 'carrier_threshold',
-                    'corr_threshold', 'template']
+                    'corr_threshold', 'template', 'rxid']
     config, args = settings.load_args(parser, setting_keys)
 
     output_file = args.output if args.append is None else args.append
@@ -145,7 +145,8 @@ def _main():
                         carrier_thresh=config.carrier_threshold,
                         carrier_window=window,
                         template=template,
-                        corr_thresh=config.corr_threshold)
+                        corr_thresh=config.corr_threshold,
+                        rxid=config.rxid)
 
     # Store previous SoAs for different frequency bins to output time interval
     # between subsequent transmissions from the same transmitter.
