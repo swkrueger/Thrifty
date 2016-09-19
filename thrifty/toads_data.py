@@ -101,7 +101,7 @@ def _load_toads(stream, with_rxid=True, with_txid=True):
 
 def load_toad(stream):
     """Load a single receiver's detection data from a .toad file."""
-    return _load_toads(stream, False, False)
+    return _load_toads(stream, True, False)
 
 
 def load_toads(stream):

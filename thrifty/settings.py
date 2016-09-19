@@ -205,7 +205,7 @@ def load(args=None, config_file=None, definitions=None):
 
     # Load config
     if config_file is not None:
-        config_settings = _parse_config(config_file)
+        config_settings = parse_kvconfig(config_file)
         for key in config_settings:
             if key not in definitions:
                 raise SettingKeyError("Unknown setting: {}".format(key))
@@ -293,7 +293,7 @@ def load_args(parser, keys, argv=None, definitions=None):
     return settings_obj, args_obj
 
 
-def _parse_config(config_file):
+def parse_kvconfig(config_file):
     """A simple key:value config file parser."""
     settings = {}
     for line_no, line in enumerate(config_file):

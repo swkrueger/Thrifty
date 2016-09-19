@@ -13,15 +13,19 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import argparse
+from collections import defaultdict
+import glob
 import itertools
 
 import numpy as np
 
 from thrifty import toads_data
+from thrifty.settings import parse_kvconfig
 
 
-def quantize_freqs(freqs):
-    """
+def detect_transmitter_windows(freqs):
+    """Detect transmitter frequency windows automatically.
+
     Parameters
     ----------
     freqs : :class:`numpy.ndarray`
@@ -69,28 +73,82 @@ def quantize_freqs(freqs):
     return edges
 
 
-def identify(freqs):
+def auto_classify_transmitters(detections):
     """Identify transmitter IDs based on carrier frequency."""
-    edges = quantize_freqs(freqs)
-    return np.digitize(freqs, edges[:-1]) - 1
+    # Split by receiver
+    detections_by_rx = defaultdict(list)
+    for detection in detections:
+        detections_by_rx[detection.rxid].append(detection)
+
+    print(len(detections))
+    edges = {}
+    for rxid, rx_detections in detections_by_rx.iteritems():
+        print(rxid, len(rx_detections))
+        freqs = np.array([d.carrier_info.bin for d in rx_detections])
+        edges[rxid] = detect_transmitter_windows(freqs)[:-1]
+
+    txids = [np.digitize(d.carrier_info.bin, edges[d.rxid]) - 1
+             for d in detections]
+
+    return txids
 
 
-def filter_duplicates(detections):
+def classify_transmitters(detections, nominal_freqs):
+    """Identify transmitter IDs based on the closest nominal frequency."""
+    # nominal_freqs = [(freq, txid) for txid, freq in txfreqs.iteritems()]
+    # nominal_freqs.sort()
+    # for i in range(len(nominal_freqs)):
+    #     if nominal_freqs[i][0] > nominal_freqs[i+1][0]:
+    #         raise Exception("Frequency spacing between transmitter {} and {}"
+    #                         " too small: it should be at least {}".format(
+    #                             nominal_freqs[i][1], nominal_freqs[i+1][1],
+    #                             window_size))
+    txids = []
+    for detection in detections:
+        freq = detection.carrier_info.bin + detection.carrier_info.offset
+        best_dfreq, best_txid = None, None
+        for txid, nominal_freq in nominal_freqs.iteritems():
+            dfreq = abs(freq - nominal_freq)
+            if best_dfreq is None or dfreq < best_dfreq:
+                best_dfreq, best_txid = dfreq, txid
+        txids.append(best_txid)
+    return txids
+
+
+def identify_transmitters(detections, nominal_freqs):
     """
-    Filter duplicate detections for the same transmission.
+    Identify transmitters and add TX info to detections.
+    The DetectionResult object (detections) is changed in-place.
+    """
+
+    if nominal_freqs is None:
+        txids = auto_classify_transmitters(detections)
+    else:
+        txids = classify_transmitters(detections, nominal_freqs)
+
+    for i, detection in enumerate(detections):
+        detection.txid = txids[i]
+
+
+def identify_duplicates(detections):
+    """
+    Returns a mask for filtering duplicate detections for the same transmitter.
 
     The block prior to or after the full detection may contain a portion of
     positioning signal and also trigger a detection. It is thus necessary
     to remove those "duplicate" detections.
     It is assumed that all detections were captured by the same receiver.
     """
-    # Sort by transmitter ID, then block ID, then timestamp
-    idx = np.argsort(detections[['txid', 'block', 'timestamp']])
+    array = toads_data.toads_array(detections, with_ids=True)
 
-    cur = detections[idx]
+    # Sort by receiver ID, then transmitter ID, then block ID, then timestamp
+    idx = np.argsort(array[['rxid', 'txid', 'block', 'timestamp']])
+
+    cur = array[idx]
     prev = np.roll(cur, 1)
     next_ = np.roll(cur, -1)
 
+    # TODO: only filter if SOA is within code_len
     mask_prev = ((cur['block'] == prev['block'] + 1) &
                  (cur['energy'] < prev['energy']))
     mask_next = ((cur['block'] == next_['block'] - 1) &
@@ -99,64 +157,49 @@ def filter_duplicates(detections):
 
     reverse_idx = np.argsort(idx)
 
-    # print np.column_stack([cur['txid'], cur['block'],
-    #                        cur['energy'].astype('int'), mask])
-    # print np.diff(cur[mask]['block'] * 6107 + cur[mask]['sample'])
-
     return mask[reverse_idx]
 
 
-def integrate(*toad_list):
-    """
-    For each RX: identify TXs, add RX and TX info, merge.
-
-    Warning: DetectionResult object is changed: RX and TX IDs are added.
-
-    Returns: list of DetectionResult
-        Detections from all RXs with RX and TX ID, sorted by timestamp.
-    """
-
-    toads = []
-
-    for rxid, toad in enumerate(toad_list):
-        print("Receiver #{}:".format(rxid))
-        detections = toads_data.toads_array(toad, with_ids=False)
-        txids = identify(detections['carrier_bin'])
-
-        # assign txids and rxids
-        for i, detection in enumerate(toad):
-            detections['rxid'][i] = rxid
-            detections['txid'][i] = txids[i]
-            detection.rxid = rxid
-            detection.txid = txids[i]
-
-        mask = filter_duplicates(detections)
-        filtered = list(itertools.compress(toad, mask))
-        toads.extend(filtered)
-        # print len(toad), len(filtered), np.sum(mask)
-        print("Removed {} duplicates from {} detections.".format(
-            len(toad)-len(filtered), len(toad)))
-
-        print('')
-
-    toads.sort(key=lambda x: x.timestamp)
-
-    # for t in toads:
-    #     print t.rxid, t.txid, t.block, t.timestamp
-
-    return toads
+def filter_duplicates(detections):
+    """Return detections with duplicates removed, sorted by timestamp."""
+    mask = identify_duplicates(detections)
+    filtered = list(itertools.compress(detections, mask))
+    filtered.sort(key=lambda x: x.timestamp)
+    return filtered
 
 
-def generate_toads(output, *toad_streams):
-    output.write("# source_files: [%s]\n" % (' '.join(toad_streams)))
+def load_toad_files(toad_globs):
+    filenames = []
+    for toad_glob in toad_globs:
+        filenames.extend(glob.glob(toad_glob))
 
-    toad_list = []
-    for stream in toad_streams:
-        data = toads_data.load_toad(open(stream, 'rb'))
-        toad_list.append(data)
+    detections = []
+    for filename in filenames:
+        with open(filename, 'r') as file_:
+            detections.extend(toads_data.load_toad(file_))
 
-    toads = integrate(*toad_list)
-    for detection in toads:
+    return detections, filenames
+
+
+def load_txfreqs(file_):
+    if file_ is None:
+        return None
+    strings = parse_kvconfig(file_)
+    txfreqs = {int(txid): float(nominal_freq)
+               for txid, nominal_freq in strings.iteritems()}
+    return txfreqs
+
+
+def generate_toads(output, toad_globs, nominal_freqs):
+    detections, filenames = load_toad_files(toad_globs)
+    output.write("# source_files: [%s]\n" % (' '.join(filenames)))
+    identify_transmitters(detections, nominal_freqs)
+    filtered = filter_duplicates(detections)
+
+    print("Removed {} duplicates from {} detections.".format(
+        len(detections)-len(filtered), len(detections)))
+
+    for detection in filtered:
         output.write(detection.serialize() + '\n')
 
 
@@ -165,12 +208,28 @@ def _main():
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument('toad_file', type=str, nargs='+', help="toad file")
+    parser.add_argument('toad_file', type=str, nargs='*', default="*.toad",
+                        help="toad file(s) from receivers [default: *.toad]")
     parser.add_argument('-o', '--output', type=argparse.FileType('wb'),
-                        default='-', help="output file (default is stdout)")
+                        default='data.toads',
+                        help="output file [default: *.taods]")
+    parser.add_argument('-t', '--tx-frequencies', type=argparse.FileType('r'),
+                        help="nominal frequencies of transmitters in terms of"
+                             "the DFT index [default: auto-detect]")
+    # TODO: eliminate detections not within window:
+    # parser.add_argument('-w', '--window', dest='window',
+    #                     type=float, default=10,
+    #                     help="size of frequency window with center at the "
+    #                     "nominal frequency in which a transmitter's carrier "
+    #                     "frequency is to be expected, in terms of DFT "
+    #                     "indices [default: 10]")
+    # TODO: --rx-freq-correction = apply frequency corrections to RX detections
+    #                              e.g. @rx0: -4 -- can include in tx-freq.conf
 
     args = parser.parse_args()
-    generate_toads(args.output, *args.toad_file)
+
+    txfreqs = load_txfreqs(args.tx_frequencies)
+    generate_toads(args.output, args.toad_file, txfreqs)
 
 
 if __name__ == "__main__":
