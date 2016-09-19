@@ -34,15 +34,11 @@ def match_toads(toads, window, min_match=2):
     Returns
     -------
     matches : list
-        List of matches, each match a list of N indices, where N is the number
-        of receivers. The i-th element in the match list contains the detection
-        index for the i-th receiver. A value of -1 is used if no detection was
-        found for the receiver.
+        List of matches, each match being a list of indices.
     misses : list
         List of detection indices that could not be matched.
     """
     # pylint: disable=too-many-locals
-    num_rx = max([x.rxid for x in toads]) + 1
     num_det = len(toads)
 
     killed = [False] * len(toads)
@@ -53,8 +49,8 @@ def match_toads(toads, window, min_match=2):
         if killed[i]:
             continue
 
-        match = [-1] * num_rx
-        match[toads[i].rxid] = i
+        rx_match = {}
+        rx_match[toads[i].rxid] = i
 
         for j in range(i + 1, num_det):
             if toads[j].txid != toads[i].txid:
@@ -63,20 +59,21 @@ def match_toads(toads, window, min_match=2):
                 break
             killed[j] = True
 
-            if match[toads[j].rxid] != -1:
-                prev = match[toads[j].rxid]
+            if toads[j].rxid in rx_match != -1:
+                prev = rx_match[toads[j].rxid]
                 logging.warning("Multiple detections for RX %d and TX %d: "
                                 "detection #%d and #%d collides.",
-                                toads[j].txid, toads[j].rxid, prev, j)
+                                toads[j].rxid, toads[j].txid, prev, j)
                 prev_ampl = toads[prev].corr_info.energy
                 this_ampl = toads[j].corr_info.energy
                 k = prev if prev_ampl > this_ampl else j
             else:
                 k = j
 
-            match[toads[j].rxid] = k
+            rx_match[toads[j].rxid] = k
 
-        if sum([x != -1 for x in match]) >= min_match:
+        match = rx_match.values()
+        if len(match) >= min_match:
             matches.append(match)
         else:
             misses.append(i)
@@ -107,10 +104,10 @@ def _main():
         formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument('input', nargs='?',
-                        type=argparse.FileType('rb'), default='rx.toads',
+                        type=argparse.FileType('rb'), default='data.toads',
                         help=".toads data (\'-\' streams from stdin)")
     parser.add_argument('-o', '--output', dest='output',
-                        type=argparse.FileType('wb'), default='rx.match',
+                        type=argparse.FileType('wb'), default='data.match',
                         help="output file (\'-\' for stdout)")
     parser.add_argument('-w', '--window', dest='window', type=float,
                         default=0.2,
