@@ -101,7 +101,7 @@ DEFINITIONS = {
     ),
 }
 
-DEFAULT_CONFIG_PATH = 'thrifty.cfg'
+DEFAULT_CONFIG_PATH = 'detector.cfg'
 CONFIG_COMMENT_CHAR = '#'
 CONFIG_DELIMITER = ':'
 CONFIG_DEST = 'config'

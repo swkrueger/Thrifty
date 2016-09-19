@@ -41,7 +41,7 @@ A command-line interface (CLI) is available through the ``thrifty`` command. Run
 Typical CLI workflow::
 
     $ cd example/
-    $ vim thrifty.cfg   # edit config
+    $ vim detector.cfg   # edit config
 
     $ # On RX0:
     $ thrifty capture -o rx0.card
@@ -60,7 +60,7 @@ Typical CLI workflow::
 Alternatively, use the Makefile::
 
     cd example/
-    vim thrifty.cfg   # edit config
+    vim detector.cfg   # edit config
     thrifty capture -o cards/rxX.card
     make
 
