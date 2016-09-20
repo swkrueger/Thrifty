@@ -28,6 +28,7 @@ Valid commands are:
     integrate         Merge RX detections and identify transmitter IDs
     match             Match detections from multiple receivers
     clock_sync        Build clock sync model from beacon transmissions
+    tdoa              Estimate TDOA by synchronising with beacon transmissions
 
     ~ Analysis tools ~
     scope             Live time-domain and frequency-domain plots with triggers
@@ -46,6 +47,7 @@ MODULES = {
     'integrate': 'thrifty.integrate',
     'match': 'thrifty.matchmaker',
     'clock_sync': 'thrifty.clock_sync',
+    'tdoa': 'thrifty.tdoa_est',
     'analyze_toads': 'thrifty.toads_analysis',
     'template_generate': 'thrifty.template_generate',
     'template_extract': 'thrifty.template_extract',
