@@ -68,7 +68,7 @@ def estimate_model_quality(model, detection_pairs):
     return snr
 
 
-def build_model_poly(detection_pairs, beacon_sdoa, sample_rate, deg=2):
+def build_model_poly(detection_pairs, beacon_sdoa, nominal_sample_rate, deg=2):
     if len(detection_pairs) < deg + 1:
         # not enough beacon transmissions
         return None
@@ -82,7 +82,42 @@ def build_model_poly(detection_pairs, beacon_sdoa, sample_rate, deg=2):
     # print(np.mean(residuals))
 
     def evaluate(det0, det1):
-        return (det0.soa - fit(det1.soa)) / sample_rate
+        return (det0.soa - fit(det1.soa)) / nominal_sample_rate
+
+    return evaluate
+
+
+def find_nearest_value(list_, value):
+    idx = bisect_left(list_, value)
+    if idx > 0 and (idx == len(list_) or
+                    abs(value - list_[idx-1]) < abs(value - list_[idx])):
+        return idx - 1
+    else:
+        return idx
+
+
+def test_find_nearest_value():
+    list_ = [5, 10, 15]
+    values = [4, 5, 6, 9, 10, 11, 14, 16]
+    expected_output = [0, 0, 0, 1, 1, 1, 2, 2]
+    nearest = [find_nearest_value(list_, v) for v in values]
+    np.testing.assert_equal(nearest, expected_output)
+
+
+def build_model_nearest(detection_pairs, beacon_sdoa, nominal_sample_rate):
+    if len(detection_pairs) < 1:
+        # not enough beacon transmissions
+        return None
+
+    pairs = sorted(detection_pairs,
+                   cmp=lambda x, y: x[0].timestamp < y[0].timestamp)
+    timestamps = [p[0] for p in pairs]
+
+    def evaluate(det0, det1):
+        idx = find_nearest_value(timestamps, det0.timestamp)
+        dsoa0 = det0.soa - pairs[idx][0].soa
+        dsoa1 = det1.soa - pairs[idx][1].soa
+        return (dsoa0 - dsoa1 + beacon_sdoa[idx]) / nominal_sample_rate
 
     return evaluate
 
