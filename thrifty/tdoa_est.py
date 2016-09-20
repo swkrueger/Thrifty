@@ -22,6 +22,7 @@ from thrifty import toads_data
 from thrifty.settings import parse_kvconfig
 
 SPEED_OF_LIGHT = 2.997e8
+MAX_TDOA = 30e3 / SPEED_OF_LIGHT
 
 
 TdoaInfo = collections.namedtuple('TdoaInfo', [
@@ -149,12 +150,26 @@ def estimate_tdoas(detections, matches, window_size, beacon_pos, rx_pos,
 # def estimate_tdoas(detections, matches, estimator)
 
 
+def filter_invalid(tdoas):
+    valid = [t for t in tdoas if abs(t.tdoa) < MAX_TDOA]
+    outliers = [t for t in tdoas if abs(t.tdoa) >= MAX_TDOA]
+    return valid, outliers
+
+
 def save_tdoas(output, tdoas):
     for tdoa in tdoas:
-        print("{ts:.06f} {tx} {rx0} {rx1} {snr} {mq}".format(
+        print("{ts:.06f} {tx} {rx0} {rx1} {tdoa} {snr} {mq}".format(
             ts=tdoa.timestamp, tx=tdoa.tx, rx0=tdoa.rx0, rx1=tdoa.rx1,
-            snr=tdoa.snr, mq=tdoa.model_quality),
+            tdoa=tdoa.tdoa, snr=tdoa.snr, mq=tdoa.model_quality),
             file=output)
+
+
+def load_tdoa_array(fname):
+    return np.loadtxt(fname,
+                      dtype={'names': ('timestamp', 'tx', 'rx0', 'rx1',
+                                       'tdoa', 'snr', 'model_quality'),
+                             'formats': ('f8', 'i4', 'i4', 'i4',
+                                         'f8', 'f8', 'f8')})
 
 
 def load_pos_file(file_):
@@ -204,10 +219,12 @@ def _main():
     matches = matchmaker.load_matches(args.matches)
     rx_pos = load_pos_file(args.rx_pos)
     beacon_pos = load_pos_file(args.beacon_pos)
-    tdoas, failures = estimate_tdoas(toads, matches, args.window_size,
-                                     beacon_pos, rx_pos, args.sample_rate)
+    all_tdoas, failures = estimate_tdoas(toads, matches, args.window_size,
+                                         beacon_pos, rx_pos, args.sample_rate)
+    tdoas, invalid = filter_invalid(all_tdoas)
     print("Number of TDOA estimations:", len(tdoas))
     print("Number of TDOA estimation failures:", len(failures))
+    print("Number of invalid TDOA estimations:", len(invalid))
     save_tdoas(args.output, tdoas)
 
 
