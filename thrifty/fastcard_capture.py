@@ -22,6 +22,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import argparse
+import os
+import signal
 import subprocess
 import sys
 import logging
@@ -68,10 +70,27 @@ def _main():
     if args.output_file is not None:
         call.extend(['-o', args.output_file])
     logging.info("Calling %s", ' '.join(call))
-    returncode = subprocess.call(call)
 
-    if returncode != 0:
-        sys.exit(returncode)
+    os.setpgrp()
+    process = subprocess.Popen(call)
+
+    def _signal_handler(signal_, frame):
+        try:
+            if process.poll() is None:
+                process.send_signal(signal_)
+                returncode = process.wait()
+                sys.exit(returncode)
+        except OSError:
+            pass
+
+    signal.signal(signal.SIGTERM, _signal_handler)
+
+    try:
+        returncode = process.wait()
+        if returncode != 0:
+            sys.exit(returncode)
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == '__main__':
