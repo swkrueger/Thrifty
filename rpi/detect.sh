@@ -2,13 +2,16 @@
 
 set -e
 
-shutdown() {
-    echo "Shutdown"
-    kill $(jobs -p)
+killjobs() {
+    JOBS="$(jobs -p)"
+    echo "Kill jobs: ${JOBS}"
+    if [ -n "${JOBS}" ]; then
+        kill ${JOBS}
+    fi
     exit -1
 }
 
-trap "shutdown" SIGINT SIGTERM
+trap "killjobs" SIGINT SIGTERM
 
 echo "Waiting for NTP sync..."
 ntp-wait
