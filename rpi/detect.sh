@@ -3,7 +3,7 @@
 set -e
 
 shutdown() {
-    print "Shutdown"
+    echo "Shutdown"
     kill $(jobs -p)
     exit -1
 }
