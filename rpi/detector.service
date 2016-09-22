@@ -1,0 +1,13 @@
+[Unit]
+Description=Detect TDOA transmissions
+
+[Service]
+ExecStart=/home/pi/thrifty/rpi/detect.sh
+User=pi
+Group=pi
+RestartSec=120
+Restart=always
+Type=idle
+
+[Install]
+WantedBy=multi-user.target
