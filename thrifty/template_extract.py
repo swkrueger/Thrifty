@@ -38,7 +38,7 @@ def best_detection(detections, max_offset):
     best_result = None
     best_fft = None
 
-    for detected, result, fft, _ in detections:
+    for detected, result, fft, _, _ in detections:
         if detected and abs(result.corr_info.offset) <= max_offset:
             if (best_result is None or
                     result.corr_info.energy > best_result.corr_info.energy):
@@ -93,15 +93,16 @@ def _main():
     blocks = card_reader(args.input)
     template = np.load(config.template)
 
-    detections = detect.detect(blocks=blocks,
-                               block_len=config.block_size,
-                               history_len=config.block_history,
-                               carrier_len=len(template),
-                               carrier_thresh=config.carrier_threshold,
-                               carrier_window=window,
-                               template=template,
-                               corr_thresh=config.corr_threshold,
-                               yield_data=True)
+    dsettings = detect.DetectorSettings(
+        block_len=config.block_size,
+        history_len=config.block_history,
+        carrier_len=len(template),
+        carrier_thresh=config.carrier_threshold,
+        carrier_window=window,
+        template=template,
+        corr_thresh=config.corr_threshold,
+        )
+    detections = detect.Detector(dsettings, blocks, yield_data=True)
 
     full_signal, result = best_detection(detections, MAX_OFFSET)
     signal = extract_template(full_signal, result, len(template))

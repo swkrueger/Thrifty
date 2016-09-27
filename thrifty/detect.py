@@ -7,10 +7,11 @@ from __future__ import unicode_literals
 
 import argparse
 import sys
+from collections import namedtuple
 
 import numpy as np
 
-from thrifty import settings
+from thrifty.settings import load_args
 from thrifty import signal
 from thrifty import toads_data
 from thrifty import util
@@ -20,43 +21,75 @@ from thrifty.setting_parsers import normalize_freq_range
 from thrifty.soa_estimator import make_soa_estimator
 
 
-def detect(blocks, block_len, history_len,
-           carrier_len, carrier_thresh, carrier_window,
-           template, corr_thresh, rxid=-1, yield_data=False):
+DetectorSettings = namedtuple('DetectorSettings', [
+    'block_len',
+    'history_len',
+    'carrier_len',
+    'carrier_thresh',
+    'carrier_window',
+    'template',
+    'corr_thresh'])
+
+
+class Detector(object):
     """Detect positioning signals and estimate sample-of-arrival.
 
     All-in-one signal detection and sample-of-arrival estimation. Find carrier,
     synchronise to carrier, correlate with template, and estimate SoA.
     """
-    # pylint: disable=too-many-locals,too-many-arguments
+    def __init__(self, settings, blocks=None, rxid=-1, yield_data=False):
+        self.settings = settings
+        self.blocks = iter(blocks) if blocks is not None else None
+        self.rxid = rxid
+        self.yield_data = yield_data
 
-    sync = make_syncer(thresh_coeffs=carrier_thresh,
-                       window=carrier_window,
-                       block_len=block_len,
-                       carrier_len=carrier_len)
-    soa_estimate = make_soa_estimator(template=template,
-                                      thresh_coeffs=corr_thresh,
-                                      block_len=block_len,
-                                      history_len=history_len)
-    new_len = block_len - history_len
+        self.sync = make_syncer(
+            thresh_coeffs=settings.carrier_thresh,
+            window=settings.carrier_window,
+            block_len=settings.block_len,
+            carrier_len=settings.carrier_len)
 
-    for timestamp, block_idx, block in blocks:
-        assert len(block) == block_len
+        self.soa_estimate = make_soa_estimator(
+            template=settings.template,
+            thresh_coeffs=settings.corr_thresh,
+            block_len=settings.block_len,
+            history_len=settings.history_len)
+
+        self.new_len = settings.block_len - settings.history_len
+
+    def detect(self, timestamp, block_idx, block):
+        """Process the given block of data."""
+        assert len(block) == self.settings.block_len
         block_signal = signal.Signal(block)
-        shifted_fft, carrier_info = sync(block_signal)
+        shifted_fft, carrier_info = self.sync(block_signal)
 
         if shifted_fft is not None:  # detected
-            detected, corr_info, _ = soa_estimate(shifted_fft)
-            soa = new_len * block_idx + corr_info.sample + corr_info.offset
+            detected, corr_info, corr = self.soa_estimate(shifted_fft)
+            soa = (self.new_len * block_idx
+                   + corr_info.sample
+                   + corr_info.offset)
         else:
-            detected, corr_info, soa = False, None, None
+            detected, corr_info, soa, corr = False, None, None, None
 
         result = toads_data.DetectionResult(timestamp, block_idx, soa,
-                                            carrier_info, corr_info, rxid)
-        if yield_data:
-            yield detected, result, shifted_fft, corr_info
+                                            carrier_info, corr_info, self.rxid)
+        if self.yield_data:
+            return detected, result, shifted_fft, corr
         else:
-            yield detected, result
+            return detected, result
+
+    def next(self):
+        """Process the next block of data."""
+        return self.detect(*next(self.blocks))
+
+    def __call__(self, timestamp, block_idx, block):
+        self.detect(timestamp, block_idx, block)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next()
 
 
 def _carrier_freq(carrier_info, block_len, sample_rate):
@@ -123,7 +156,7 @@ def _main():
     setting_keys = ['sample_rate', 'block_size', 'block_history',
                     'carrier_window', 'carrier_threshold',
                     'corr_threshold', 'template', 'rxid']
-    config, args = settings.load_args(parser, setting_keys)
+    config, args = load_args(parser, setting_keys)
 
     output_file = args.output if args.append is None else args.append
     info_out = sys.stderr if output_file == sys.stdout else sys.stdout
@@ -138,15 +171,16 @@ def _main():
 
     template = np.load(config.template)
 
-    detections = detect(blocks=blocks,
-                        block_len=config.block_size,
-                        history_len=config.block_history,
-                        carrier_len=len(template),
-                        carrier_thresh=config.carrier_threshold,
-                        carrier_window=window,
-                        template=template,
-                        corr_thresh=config.corr_threshold,
-                        rxid=config.rxid)
+    settings = DetectorSettings(
+        block_len=config.block_size,
+        history_len=config.block_history,
+        carrier_len=len(template),
+        carrier_thresh=config.carrier_threshold,
+        carrier_window=window,
+        template=template,
+        corr_thresh=config.corr_threshold,
+        )
+    detections = Detector(settings, blocks, rxid=config.rxid)
 
     # Store previous SoAs for different frequency bins to output time interval
     # between subsequent transmissions from the same transmitter.
