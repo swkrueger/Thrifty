@@ -98,6 +98,23 @@ def save_matches(matches, file_):
         file_.write(' '.join(map(str, match)) + '\n')
 
 
+def extract_match_matrix(detections, matches, rxids, txids=None):
+    matrix = []
+    for match in matches:
+        match_rxids = [detections[m].rxid for m in match]
+        row = [None] * len(rxids)
+        for i, rxid in enumerate(rxids):
+            if rxid not in match_rxids:
+                break
+            if txids is not None and detections[match[0]].txid not in txids:
+                break
+            assert row[i] is None
+            row[i] = match[match_rxids.index(rxid)]
+        else:
+            matrix.append(row)
+    return matrix
+
+
 def _main():
     parser = argparse.ArgumentParser(
         description=__doc__,
