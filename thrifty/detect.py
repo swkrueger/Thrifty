@@ -173,7 +173,7 @@ def _main():
                         help="do not write anything to standard output")
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-o', '--output', dest='output',
-                       type=argparse.FileType('wb'), default='-',
+                       type=argparse.FileType('wb'),
                        help="Output file (.toad) ('-' for stdout)")
     group.add_argument('-a', '--append', dest='append',
                        type=argparse.FileType('ab'),
@@ -210,7 +210,7 @@ def _main():
                                          add_dt=True)
 
     for detected, result in detections:
-        if detected:
+        if detected and output_file is not None:
             print(result.serialize(), file=output_file)
 
         if not args.quiet:

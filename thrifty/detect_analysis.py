@@ -332,7 +332,6 @@ class Plotter(object):
         self._plot_corr_interpolation(ax, corr_mag, peak_idx,
                                       label='Interpolation')
 
-        ax.set_ylim(0, corr_mag[peak_idx]*1.1)
         ax.set_xlabel('Offset relative to peak (samples)')
         ax.set_ylabel('Correlation magnitude')
         ax.legend()
@@ -358,7 +357,6 @@ class Plotter(object):
         scale = corr_mag[peak_idx] / autocorr[peak_idx]
         ax.plot(indices, autocorr * scale, marker='.', label='Autocorr')
 
-        ax.set_ylim(0, corr_mag[peak_idx]*1.1)
         ax.set_xlabel('Offset relative to peak (samples)')
         ax.set_ylabel('Correlation magnitude')
         ax.legend()

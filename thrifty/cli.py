@@ -33,6 +33,7 @@ Valid commands are:
     ~ Analysis tools ~
     scope             Live time-domain and frequency-domain plots with triggers
     analyze_toads     Calculate statistics on data in a .toads file
+    analyze_detect    Like 'detect', but plot signals for analysis
 
     ~ Utilities ~
     template_generate Generate a new (ideal) template
