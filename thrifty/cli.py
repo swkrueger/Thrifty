@@ -49,6 +49,7 @@ MODULES = {
     'clock_sync': 'thrifty.clock_sync',
     'tdoa': 'thrifty.tdoa_est',
     'analyze_toads': 'thrifty.toads_analysis',
+    'analyze_detect': 'thrifty.detect_analysis',
     'template_generate': 'thrifty.template_generate',
     'template_extract': 'thrifty.template_extract',
     'scope': 'thrifty.scope',
