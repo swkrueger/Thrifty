@@ -275,7 +275,7 @@ def load_args(parser, keys, argv=None, definitions=None):
         except IOError:
             # Do not throw IOError if the config file has not been
             # specified explicitly.
-            pass
+            logging.warning("No config file found. Using default values.")
     else:
         config_file = open(config_arg)
         logging.info("Loaded config file from %s", config_arg)
