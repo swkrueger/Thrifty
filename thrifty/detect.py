@@ -101,35 +101,61 @@ def _carrier_freq(carrier_info, block_len, sample_rate):
     return freq
 
 
-def _summary_line(detected, result, prev_soa, sample_rate, block_len):
-    """Summarize detection results."""
+class SummaryLineFormatter(object):
+    """Generate a one-line summary of a detection."""
+    def __init__(self, sample_rate, block_len, add_dt=False):
+        self.sample_rate = sample_rate
+        self.block_len = block_len
+        self.add_dt = add_dt
+        if add_dt:
+            # Store previous SoAs for different frequency bins to output time
+            # interval between subsequent transmissions from the same
+            # transmitter.
+            self.prev_soas = {}
 
-    carrier_detect = (result.corr_info is not None)
-    carrier_freq = _carrier_freq(result.carrier_info, block_len, sample_rate)
-    snr = util.snr(result.carrier_info.energy, result.carrier_info.noise)
-    info = ("blk={blk}; carrier: {det} @ {freq:.3f} kHz, "
-            "SNR = {ampl:>4.0f} / {noise:>2.0f} = {snr:>5.2f} dB"
-            .format(blk=result.block,
-                    det="yes" if carrier_detect else "no ",
-                    freq=carrier_freq / 1e3,
-                    ampl=result.carrier_info.energy,
-                    noise=result.carrier_info.noise,
-                    snr=snr))
+    def __call__(self, detected, result):
+        """Summarize detection results."""
+        if self.add_dt:
+            # Calculate time interval between subsequent transmissions
+            dt_idx = result.carrier_info.bin // 2
+            prev_soa = self.prev_soas.get(dt_idx, result.soa)
+            if detected:
+                self.prev_soas[dt_idx] = result.soa
+            time_diff = (result.soa - prev_soa) / self.sample_rate
+            time_diff_str = " (+{:.1f}s)".format(time_diff)
+        else:
+            time_diff_str = ""
 
-    if carrier_detect:
-        time_diff = (result.soa - prev_soa) / sample_rate
-        snr = util.snr(result.corr_info.energy, result.corr_info.noise)
-        info += ("; corr: {det} @ {idx:>4}{offset:+.3f} (+{dt:.1f}s)"
-                 ", SNR = {ampl:>4.0f}/{noise:>2.0f} = {snr:>5.2f} dB"
-                 .format(det="yes" if detected else "no ",
-                         idx=result.corr_info.sample,
-                         offset=result.corr_info.offset,
-                         dt=time_diff,
-                         ampl=result.corr_info.energy,
-                         noise=result.corr_info.noise,
-                         snr=snr))
+        carrier_detect = result.corr_info is not None
+        carrier_freq = _carrier_freq(result.carrier_info,
+                                     self.block_len,
+                                     self.sample_rate)
+        snr = util.snr(result.carrier_info.energy, result.carrier_info.noise)
+        info = ("blk={blk}; carrier: {det} @ {freq:.3f} kHz"
+                " / {idx:>3.0f}:{offset:.2f}, "
+                "SNR = {ampl:>4.0f} / {noise:>2.0f} = {snr:>5.2f} dB"
+                .format(blk=result.block,
+                        det="yes" if carrier_detect else "no ",
+                        freq=carrier_freq / 1e3,
+                        idx=result.carrier_info.bin,
+                        offset=result.carrier_info.offset,
+                        ampl=result.carrier_info.energy,
+                        noise=result.carrier_info.noise,
+                        snr=snr))
 
-    return info
+        if carrier_detect:
+            snr = util.snr(result.corr_info.energy, result.corr_info.noise)
+            info += ("; corr: {det} @ {idx:>4}{offset:+.3f}{dt}"
+                     ", SNR = {ampl:>4.0f}/{noise:>2.0f} = {snr:>5.2f} dB"
+                     .format(det="yes" if detected else "no ",
+                             idx=result.corr_info.sample,
+                             offset=result.corr_info.offset,
+                             dt=time_diff_str,
+                             ampl=result.corr_info.energy,
+                             noise=result.corr_info.noise,
+                             snr=snr))
+
+        return info
 
 
 def _main():
@@ -171,36 +197,25 @@ def _main():
 
     template = np.load(config.template)
 
-    settings = DetectorSettings(
-        block_len=config.block_size,
-        history_len=config.block_history,
-        carrier_len=len(template),
-        carrier_thresh=config.carrier_threshold,
-        carrier_window=window,
-        template=template,
-        corr_thresh=config.corr_threshold,
-        )
+    settings = DetectorSettings(block_len=config.block_size,
+                                history_len=config.block_history,
+                                carrier_len=len(template),
+                                carrier_thresh=config.carrier_threshold,
+                                carrier_window=window,
+                                template=template,
+                                corr_thresh=config.corr_threshold)
     detections = Detector(settings, blocks, rxid=config.rxid)
-
-    # Store previous SoAs for different frequency bins to output time interval
-    # between subsequent transmissions from the same transmitter.
-    prev_soas = {}
+    summary_liner = SummaryLineFormatter(config.sample_rate,
+                                         config.block_size,
+                                         add_dt=True)
 
     for detected, result in detections:
         if detected:
             print(result.serialize(), file=output_file)
 
         if not args.quiet:
-            # Calculate time interval between subsequent transmissions
-            dt_idx = result.carrier_info.bin // 2
-            prev_soa = prev_soas.get(dt_idx, result.soa)
-            if detected:
-                prev_soas[dt_idx] = result.soa
-
             # Output summary line
-            summary = _summary_line(detected, result, prev_soa,
-                                    config.sample_rate, config.block_size)
-            print(summary, file=info_out)
+            print(summary_liner(detected, result), file=info_out)
 
 
 if __name__ == '__main__':
