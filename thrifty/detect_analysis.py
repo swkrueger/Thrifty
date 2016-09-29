@@ -8,6 +8,7 @@ import sys
 import re
 from collections import namedtuple
 
+from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT
@@ -16,6 +17,7 @@ from matplotlib.figure import Figure
 import numpy as np
 
 from PyQt4 import QtGui as qt
+from PyQt4 import QtCore
 
 from thrifty.settings import load_args
 from thrifty.signal import Signal
@@ -452,72 +454,58 @@ def _plot(fig, plotter, cmd):
         _FIGURE_COMMAND_STRINGS[cmd](plotter, fig)
 
 
-class DetectionWidget(qt.QTabWidget):
-    def __init__(self, detection, cmds, settings, sample_rate, parent=None):
-        qt.QTabWidget.__init__(self, parent)
-
-        print("Plotting block #{}".format(detection.result.block))
-        plotter = Plotter(detection, settings, sample_rate)
-        for cmd in cmds:
-            fig = Figure()
-            canvas = FigureCanvasQTAgg(fig)
-            _plot(fig, plotter, cmd)
-            fig.set_tight_layout(True)
-            toolbar = NavigationToolbar2QT(canvas, parent)
-            vbox = qt.QVBoxLayout()
-            vbox.addWidget(canvas)
-            vbox.addWidget(toolbar)
-            widget = qt.QWidget()
-            widget.setLayout(vbox)
-            self.addTab(widget, cmd)
-            # TODO: add QLabel with detection summary string
-
-
 class DetectionViewer(qt.QWidget):
     def __init__(self, detections, cmds, settings, sample_rate, parent=None):
         qt.QWidget.__init__(self, parent)
 
-        self.cmds = cmds
-        self.settings = settings
-        self.sample_rate = sample_rate
+        self.plotters = [Plotter(detection, settings, sample_rate)
+                         for detection in detections]
 
-        self.tab_widget = qt.QTabWidget()
+        self.block_selector = qt.QTabBar()
         for detection in detections:
-            dummy = qt.QWidget()
-            dummy.detection = detection
-            dummy.setMaximumHeight(0)
             title = str(detection.result.block)
-            self.tab_widget.addTab(dummy, title)
-        self.tab_widget.setMaximumHeight(40)
+            self.block_selector.addTab(title)
 
-        self.plots = qt.QWidget()
-        self.plots_vbox = qt.QVBoxLayout()
-        self.plots.setLayout(self.plots_vbox)
-        self.detection = None
+        # TODO: add summary line as QLabel
+
+        self.cmds = cmds
+        self.cmd_selector = qt.QTabBar()
+        for cmd in cmds:
+            self.cmd_selector.addTab(cmd)
+
+        self.block_selector.currentChanged.connect(self.plot)
+        self.cmd_selector.currentChanged.connect(self.plot)
+
+        self.fig = Figure()
+        self.canvas = FigureCanvasQTAgg(self.fig)
+        self.toolbar = NavigationToolbar2QT(self.canvas, parent)
+        self.canvas.mpl_connect('key_press_event', self.on_key_press)
+        self.canvas.setSizePolicy(qt.QSizePolicy.Expanding,
+                                  qt.QSizePolicy.Expanding)
+        self.canvas.setFocusPolicy(QtCore.Qt.StrongFocus)
 
         vbox = qt.QVBoxLayout()
         vbox.addWidget(qt.QLabel('Detect Analysis'))
-        vbox.addWidget(self.tab_widget)
-        vbox.addWidget(self.plots)
+        vbox.addWidget(self.block_selector)
+        vbox.addWidget(self.cmd_selector)
+        vbox.addWidget(self.canvas)
+        vbox.addWidget(self.toolbar)
         self.setLayout(vbox)
-        self.tab_widget.currentChanged.connect(self.switch_tab)
 
-        if len(detections) > 0:
-            self.switch_tab(0)
+        self.plot()
+        self.canvas.setFocus()
 
-    def switch_tab(self, new):
-        tab_index = 0
-        if self.detection is not None:
-            tab_index = self.detection.currentIndex()
-            self.plots_vbox.removeWidget(self.detection)
-            self.detection.destroy()
-        tab = self.tab_widget.currentWidget()
-        self.detection = DetectionWidget(tab.detection,
-                                         self.cmds,
-                                         self.settings,
-                                         self.sample_rate)
-        self.detection.setCurrentIndex(tab_index)
-        self.plots_vbox.addWidget(self.detection)
+    def plot(self):
+        plotter = self.plotters[self.block_selector.currentIndex()]
+        cmd = self.cmds[self.cmd_selector.currentIndex()]
+        self.fig.clear()
+        _plot(self.fig, plotter, cmd)
+        self.canvas.draw()
+
+    def on_key_press(self, event):
+        # implement the default mpl key press events described at
+        # http://matplotlib.org/users/navigation_toolbar.html
+        key_press_handler(event, self.canvas, self.toolbar)
 
 
 def parse_range_list(string):
@@ -619,7 +607,7 @@ def _main():
         if not block_in_range(block_idx, args.blocks):
             print("Skipping block #{}".format(block_idx))
             continue
-        print("Generating plots for block #{}".format(block_idx))
+        print("Generating plotter for block #{}".format(block_idx))
         detection = detector(timestamp, block_idx, block)
         if detection.detected:
             detections.append(detection)
