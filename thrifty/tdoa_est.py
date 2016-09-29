@@ -195,16 +195,18 @@ def save_tdoas(output, tdoas):
     for tdoa in tdoas:
         print("{ts:.06f} {tx} {rx0} {rx1} {tdoa} {snr} {mq}".format(
             ts=tdoa.timestamp, tx=tdoa.tx, rx0=tdoa.rx0, rx1=tdoa.rx1,
-            tdoa=tdoa.tdoa, snr=tdoa.snr, mq=tdoa.model_quality),
+            tdoa=tdoa.tdoa * 1e9, snr=tdoa.snr, mq=tdoa.model_quality),
             file=output)
 
 
 def load_tdoa_array(fname):
-    return np.loadtxt(fname,
+    data = np.loadtxt(fname,
                       dtype={'names': ('timestamp', 'tx', 'rx0', 'rx1',
                                        'tdoa', 'snr', 'model_quality'),
                              'formats': ('f8', 'i4', 'i4', 'i4',
                                          'f8', 'f8', 'f8')})
+    data['tdoa'] /= 1e9
+    return data
 
 
 def load_pos_file(file_):
