@@ -38,14 +38,14 @@ DEFINITIONS = {
     'tuner_freq': Definition(
         ['--freq', '-f'],
         setting_parsers.metric_float,
-        '433.01M',
+        '433.83M',
         "Tuner center frequency (Hz)"
     ),
 
     'tuner_gain': Definition(
         ['--gain', '-g'],
         float,
-        '20',
+        '0',
         "Tuner gain (dB)"
     ),
 
@@ -75,14 +75,14 @@ DEFINITIONS = {
     'carrier_threshold': Definition(
         ['--carrier-threshold', '-t'],
         setting_parsers.threshold,
-        '0',
+        '100 + 2*snr',
         "Threshold formula for carrier detector"
     ),
 
     'corr_threshold': Definition(
         ['--corr-threshold', '-u'],
         setting_parsers.threshold,
-        '5 + 3*snr + 1*stddev',
+        '10*snr',
         "Threshold formula for correlation peak detector"
     ),
 

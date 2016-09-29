@@ -2,7 +2,7 @@
 Calculate the root mean square value for blocks of data.
 
 Example:
-    # rtl_sdr -f 433.81M -s 2.4M -g 55 - | noise_rms.py
+    # rtl_sdr -f 433.83M -s 2.4M -g 55 - | noise_rms.py
 """
 
 from __future__ import print_function

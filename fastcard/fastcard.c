@@ -52,7 +52,7 @@
 #include <rtl-sdr.h>
 #include "circbuf.h"
 
-#define DEFAULT_FREQUENCY 433010000     // 433.01 MHz
+#define DEFAULT_FREQUENCY 433830000     // 433.83 MHz
 #define DEFAULT_SAMPLE_RATE 2400000     // 2.4 Msps
 #define DEFAULT_GAIN 0                  // 0 dB
 
@@ -71,8 +71,8 @@ typedef float complex fc_complex;
 size_t block_size = 16384;  // 2^14
 size_t history_size = 5210;
 
-float threshold_constant = 12;
-float threshold_snr = 0;
+float threshold_constant = 100;
+float threshold_snr = 2;
 int carrier_freq_min = 0;
 int carrier_freq_max = -1;
 unsigned blocks_skip = 1;
@@ -689,13 +689,13 @@ static struct argp_option options[] = {
         "Window of frequency bins used for carrier detection "
         "[default: no window]", 3},
     {"threshold", 't', "<constant>c<snr>s", 0,
-        "Carrier detection theshold [default: 12c0s]", 3},
+        "Carrier detection theshold [default: 100c2s]", 3},
 
 #ifdef USE_LIBRTLSDR
     // Tuner
     {0, 0, 0, 0, "Tuner settings (if input is 'rtlsdr'):", 4},
     {"frequency", 'f', "<hz>", 0,
-        "Frequency to tune to [default: 433.01M]", 4},
+        "Frequency to tune to [default: 433.83M]", 4},
     {"sample-rate", 's', "<sps>", 0,
         "Sample rate [default: 2.4M]", 4},
     {"gain", 'g', "<db>", 0,
