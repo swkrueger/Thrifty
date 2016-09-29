@@ -52,9 +52,9 @@ Typical CLI workflow::
     $ thrifty detect rx0.card -o rx1.toad
 
     $ # On server:
-    $ thrifty integrate *.toad -o rx.toads
-    $ thrifty match rx.toads -o rx.match
-    $ thrifty clock_sync rx.toads rx.match
+    $ thrifty identify rx0.card rx1.card
+    $ thrifty match
+    $ thrifty tdoa
 
 
 Alternatively, use the Makefile::

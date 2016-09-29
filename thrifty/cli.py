@@ -25,7 +25,7 @@ Valid commands are:
     ~ Core functionality ~
     capture           Capture carrier detections from RTL-SDR using fastcard
     detect            Detect presence of positioning signals and estimate SoA
-    integrate         Merge RX detections and identify transmitter IDs
+    identify          Identify transmitter IDs and filter duplicate detections
     match             Match detections from multiple receivers
     clock_sync        Build clock sync model from beacon transmissions
     tdoa              Estimate TDOA by synchronising with beacon transmissions
@@ -45,7 +45,7 @@ Use 'thrifty help <command>' for information about the command's arguments."""
 MODULES = {
     'capture': 'thrifty.fastcard_capture',
     'detect': 'thrifty.detect',
-    'integrate': 'thrifty.integrate',
+    'identify': 'thrifty.identify',
     'match': 'thrifty.matchmaker',
     'clock_sync': 'thrifty.clock_sync',
     'tdoa': 'thrifty.tdoa_est',

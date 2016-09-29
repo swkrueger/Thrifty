@@ -7,7 +7,7 @@ toad/%.toad: cards/%.card detector.cfg
 	thrifty detect $< -o $@
 
 rx.toads: $(TOAD_FILES) detector.cfg
-	thrifty integrate $(TOAD_FILES) -o rx.toads
+	thrifty identify $(TOAD_FILES) -o rx.toads
 
 rx.toads_analysis: rx.toads detector.cfg
 	thrifty analyze_toads rx.toads > rx.toads_analysis
@@ -20,7 +20,7 @@ rx.clock_model: rx.toads rx.match detector.cfg
 	touch rx.clock_model
 
 detect: rx.toads
-integrate: detect
+identify: detect
 analyze_toads: rx.toads_analysis
 match: rx.match
 clock_sync: rx.clock_model
