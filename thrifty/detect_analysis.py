@@ -460,14 +460,12 @@ class DetectionViewer(qt.QWidget):
 
         self.plotters = [Plotter(detection, settings, sample_rate)
                          for detection in detections]
+        self.detections = detections
 
         self.block_selector = qt.QTabBar()
         for detection in detections:
             title = str(detection.result.block)
             self.block_selector.addTab(title)
-
-        # TODO: add summary line as QLabel
-
         self.cmds = cmds
         self.cmd_selector = qt.QTabBar()
         for cmd in cmds:
@@ -484,10 +482,17 @@ class DetectionViewer(qt.QWidget):
                                   qt.QSizePolicy.Expanding)
         self.canvas.setFocusPolicy(QtCore.Qt.StrongFocus)
 
+        self.summary_liner = detect.SummaryLineFormatter(sample_rate,
+                                                         settings.block_len,
+                                                         add_dt=False)
+        self.summary_line = qt.QLabel()
+        self.summary_line.setAlignment(QtCore.Qt.AlignHCenter)
+
         vbox = qt.QVBoxLayout()
         vbox.addWidget(qt.QLabel('Detect Analysis'))
         vbox.addWidget(self.block_selector)
         vbox.addWidget(self.cmd_selector)
+        vbox.addWidget(self.summary_line)
         vbox.addWidget(self.canvas)
         vbox.addWidget(self.toolbar)
         self.setLayout(vbox)
@@ -496,11 +501,20 @@ class DetectionViewer(qt.QWidget):
         self.canvas.setFocus()
 
     def plot(self):
-        plotter = self.plotters[self.block_selector.currentIndex()]
+        detection_idx = self.block_selector.currentIndex()
+        if detection_idx == -1:
+            return
+        plotter = self.plotters[detection_idx]
+        detection = self.detections[detection_idx]
+
         cmd = self.cmds[self.cmd_selector.currentIndex()]
         self.fig.clear()
         _plot(self.fig, plotter, cmd)
+        self.fig.set_facecolor('none')
         self.canvas.draw()
+
+        summary_text = self.summary_liner(detection.detected, detection.result)
+        self.summary_line.setText(summary_text)
 
     def on_key_press(self, event):
         # implement the default mpl key press events described at
