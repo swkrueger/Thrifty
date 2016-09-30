@@ -249,9 +249,12 @@ class Plotter(object):
         ax.set_title('Unsynchronised FFT' +
                      ' (window)' if zoom_to_window else '')
 
+    def plot_unsynced_fft_window(self, ax, zoom_padding=10):
+        """Plot the carrier detection window within the FFT."""
+        self.plot_unsynced_fft(ax, True, zoom_padding)
+
     def plot_synced_psd(self, ax):
-        """Plot the estimated power spectral density after frequency
-        compensation."""
+        """Plot the estimated PSD after frequency compensation."""
         self._plot_spectrum(self.synced.fft, ax,
                             scaled=True, power=True, db_scale=True)
 
@@ -337,8 +340,7 @@ class Plotter(object):
         ax.legend()
 
     def plot_corr_peak_shifted(self, ax, length=10):
-        """Plot the offset-compensated correlation peak and the
-        autocorrelation peak."""
+        """Plot the offset-compensated xcorr peak and the autocorr peak."""
         peak_sample = self.result.corr_info.sample
         offset = self.result.corr_info.offset
         start = max(0, peak_sample - length // 2)
@@ -362,7 +364,7 @@ class Plotter(object):
         ax.legend()
 
     def plot_corr_peak_shifted_autocorr(self, ax, length=20):
-        """Plot the correlation peak and the shifted autocorrelation peak."""
+        """Plot the xcorr peak and the shifted autocorr peak."""
         peak_sample = self.result.corr_info.sample
         offset = self.result.corr_info.offset
         start = max(0, peak_sample - length // 2)
@@ -384,18 +386,21 @@ class Plotter(object):
         ax.grid()
 
     def plot_overview(self, fig):
+        """Plot hist, mag_synced, fft_window, corr."""
         self.plot_sample_histogram(fig.add_subplot(221))
         self.plot_synced_mag(fig.add_subplot(222))
-        self.plot_unsynced_fft(fig.add_subplot(223), zoom_to_window=True)
+        self.plot_unsynced_fft_window(fig.add_subplot(223))
         self.plot_corr(fig.add_subplot(224))
         fig.suptitle('Overview')
 
     def plot_time(self, fig):
+        """Plot iq, mag_synced."""
         self.plot_unsynced_iq(fig.add_subplot(211))
         self.plot_synced_mag(fig.add_subplot(212))
         fig.suptitle('Time-domain')
 
     def plot_overlays(self, fig):
+        """Plot template overlay (full, start, center, and end)."""
         self.plot_template_overlay(fig.add_subplot(221), 'no')
         self.plot_template_overlay(fig.add_subplot(222), 'start')
         self.plot_template_overlay(fig.add_subplot(223), 'center')
@@ -403,6 +408,7 @@ class Plotter(object):
         fig.suptitle('Template overlays')
 
     def plot_spectra(self, fig):
+        """Plot fft, psd_synced."""
         self.plot_unsynced_fft(fig.add_subplot(221), zoom_to_window=True)
         self.plot_synced_psd(fig.add_subplot(222))
         # TODO: unsynced_fft_peak (i.t.o. bins)
@@ -410,6 +416,7 @@ class Plotter(object):
         fig.suptitle('Spectra')
 
     def plot_corrs(self, fig):
+        """Plot corr, corr_zoomed, corr_interpol, corr_shifted."""
         self.plot_corr(fig.add_subplot(221))
         self.plot_corr_zoomed(fig.add_subplot(222))
         self.plot_corr_peak_interpol(fig.add_subplot(223))
@@ -425,6 +432,7 @@ _PLOT_COMMAND_STRINGS = {
     'mag_synced': Plotter.plot_synced_mag,
     'template': Plotter.plot_template_overlay,
     'fft': Plotter.plot_unsynced_fft,
+    'fft_window': Plotter.plot_unsynced_fft_window,
     'fft_synced': Plotter.plot_synced_fft,
     'psd': Plotter.plot_unsynced_psd,
     'psd_synced': Plotter.plot_synced_psd,
@@ -446,7 +454,7 @@ _FIGURE_COMMAND_STRINGS = {
 
 def _plot(fig, plotter, cmd):
     if cmd in _PLOT_COMMAND_STRINGS:
-        ax = fig.subplot(111)
+        ax = fig.add_subplot(111)
         _PLOT_COMMAND_STRINGS[cmd](plotter, ax)
     elif cmd in _FIGURE_COMMAND_STRINGS:
         _FIGURE_COMMAND_STRINGS[cmd](plotter, fig)
@@ -563,8 +571,22 @@ def block_in_range(block_idx, ranges):
 
 def _main():
     # pylint: disable=too-many-locals
+
+    plot_cmd_descriptions = ["  {:14s} {}".format(c, f.__doc__.split('\n')[0])
+                             for c, f in
+                             sorted(_PLOT_COMMAND_STRINGS.iteritems())]
+
+    figure_cmd_descriptions = ["  {:14s} {}".format(c, f.__doc__.split('\n')[0])
+                             for c, f in
+                             sorted(_FIGURE_COMMAND_STRINGS.iteritems())]
+
+    description = "{}\n\nplot commands:\n{}\n\nfigure commands:\n{}".format(
+                  __doc__,
+                  '\n'.join(plot_cmd_descriptions),
+                  '\n'.join(figure_cmd_descriptions))
+
     parser = argparse.ArgumentParser(
-        description=__doc__,
+        description=description,
         formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument('input',
