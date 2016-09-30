@@ -601,13 +601,18 @@ void process(FILE* in, FILE* out) {
     }
 #endif /* USE_LIBRTLSDR */
 
-    unsigned long i = 0;
-    while (read_next_block(in) && keep_running) {
-        if (blocks_skip != 0) {
-            blocks_skip--;
-            continue;
+    if (blocks_skip > 0) {
+        info_out("\nSkipping %u block(s)... ", blocks_skip);
+        fflush(info);
+        while (blocks_skip && keep_running && read_next_block(in)) {
+            --blocks_skip;
         }
+        info_out("done\n\n");
+        fflush(info);
+    }
 
+    unsigned long i = 0;
+    while (keep_running && read_next_block(in)) {
         convert_raw_to_complex();
         perform_fft();
         if (detect_carrier(&d)) {
