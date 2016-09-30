@@ -42,7 +42,7 @@ def _main():
     parser.add_argument('-d', '--device-index', dest='device_index',
                         type=int, default=0, help="RTL-SDR device index")
     setting_keys = ['sample_rate', 'tuner_freq', 'tuner_gain',
-                    'block_size', 'block_history',
+                    'capture_skip', 'block_size', 'block_history',
                     'carrier_window', 'carrier_threshold']
     config, args = settings.load_args(parser, setting_keys)
 
@@ -65,7 +65,7 @@ def _main():
         '-h', str(config.block_history),
         '-w', "{}-{}".format(window[0], window[1]),
         '-t', "{}c{}s".format(constant, snr),
-        # '-k', '12000',
+        '-k', str(config.capture_skip)
     ]
     if args.output_file is not None:
         call.extend(['-o', args.output_file])
@@ -74,7 +74,7 @@ def _main():
     os.setpgrp()
     process = subprocess.Popen(call)
 
-    def _signal_handler(signal_, frame):
+    def _signal_handler(signal_, _):
         try:
             if process.poll() is None:
                 process.send_signal(signal_)

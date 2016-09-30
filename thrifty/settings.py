@@ -49,6 +49,13 @@ DEFINITIONS = {
         "Tuner gain (dB)"
     ),
 
+    'capture_skip': Definition(
+        ['--skip', '-k'],
+        int,
+        '1',
+        "Number of blocks to skip before starting capturing from the SDR"
+    ),
+
     'block_size': Definition(
         ['--block-size', '-b'],
         int,
