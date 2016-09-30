@@ -908,7 +908,7 @@ int main(int argc, char **argv) {
 #endif /* USE_LIBRTLSDR */
     fflush(info);
 
-    if (out != NULL) {
+    if (out != NULL && out != stdout) {
         fprintf(out,
                 "# arguments: { carrier_bin: '%d-%d', threshold: '%gc+%gs', "
                 "block_size: %zu, history_size: %zu }\n",
