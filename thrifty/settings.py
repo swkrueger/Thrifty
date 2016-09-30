@@ -253,6 +253,9 @@ def load_args(parser, keys, argv=None, definitions=None):
     if argv is None:
         argv = None
 
+    parser.add_argument('-v', '--verbose', help="Increase output verbosity",
+                        action="store_true")
+
     parser.add_argument('-c', '--config', dest=CONFIG_DEST,
                         type=str, default=None,
                         help="Config file to load settings from "
@@ -263,6 +266,9 @@ def load_args(parser, keys, argv=None, definitions=None):
     else:
         args_namespace = parser.parse_args(argv)
     args = vars(args_namespace)
+
+    if args['verbose']:
+        logging.basicConfig(level=logging.DEBUG)
 
     # Load config file
     config_file = None
