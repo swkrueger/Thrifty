@@ -29,6 +29,13 @@ bool circbuf_init(circbuf_t* circbuf, size_t size) {
     circbuf->head = 0;
     circbuf->tail = 0;
     circbuf->cancel = false;
+    circbuf->num_overflows = 0;
+
+    circbuf->histogram = malloc(CIRCBUF_HISTOGRAM_LEN * sizeof(unsigned));
+    if (circbuf->histogram == NULL) {
+        goto fail;
+    }
+    for (int i = 0; i < CIRCBUF_HISTOGRAM_LEN; ++i) circbuf->histogram[i] = 0;
 
     circbuf->buf = malloc(circbuf->size);
     if (circbuf->buf == NULL) {
@@ -38,7 +45,7 @@ bool circbuf_init(circbuf_t* circbuf, size_t size) {
     return true;
 
 fail:
-    // TODO: destroy mutex and conds
+    // TODO: destroy mutex, conds and buffers
     return false;
 }
 
@@ -46,6 +53,8 @@ void circbuf_free(circbuf_t* circbuf) {
     pthread_mutex_destroy(&circbuf->mutex);
     pthread_cond_destroy(&circbuf->can_produce);
     pthread_cond_destroy(&circbuf->can_consume);
+    if (circbuf->histogram != NULL)
+        free(circbuf->histogram);
     if (circbuf->buf != NULL)
         free(circbuf->buf);
 
@@ -100,6 +109,9 @@ bool circbuf_put(circbuf_t* circbuf, char* src, size_t len) {
         goto fail;
     }
 
+    if (circbuf->len < circbuf->size) {
+        circbuf->histogram[circbuf->len*CIRCBUF_HISTOGRAM_LEN/circbuf->size]++;
+    }
     // wait for consumer on overflow
     if (circbuf->len + len >= circbuf->size) {
         circbuf->num_overflows++;
@@ -151,3 +163,12 @@ void circbuf_cancel(circbuf_t* circbuf) {
     pthread_mutex_unlock(&circbuf->mutex);
 }
 
+unsigned* circbuf_histogram(circbuf_t* circbuf) {
+    // TODO: lock and copy to buffer
+    return circbuf->histogram;
+}
+
+unsigned circbuf_overflows(circbuf_t* circbuf) {
+    // TODO: lock
+    return circbuf->num_overflows;
+}

@@ -11,6 +11,8 @@
 #include <pthread.h>
 #include <stdbool.h>
 
+#define CIRCBUF_HISTOGRAM_LEN 10
+
 typedef struct {
     char *buf;                      // the buffer
     size_t size;                    // size of buffer
@@ -18,6 +20,7 @@ typedef struct {
     size_t head;                    // position of producer
     size_t tail;                    // position of consumer
     bool cancel;                    // cancel get and put operations
+    unsigned *histogram;            // record buffer occupancy
     unsigned num_overflows;         // number of overflow events
     pthread_mutex_t mutex;          // protect circbuf_t data
     pthread_cond_t can_produce;     // signaled when items have been removed
@@ -45,6 +48,9 @@ bool circbuf_put(circbuf_t* circbuf, char* src, size_t len);
 
 /// Return the number of overflow events that occurred.
 unsigned circbuf_overflows(circbuf_t* circbuf);
+
+/// Return the occupancy histogram
+unsigned* circbuf_histogram(circbuf_t* circbuf);
 
 /// Cancel get waiting for more data and put waiting for data to be consumed.
 void circbuf_cancel(circbuf_t* circbuf);

@@ -315,6 +315,21 @@ int sdr_stop() {
 bool rtl_read(uint16_t *dst, size_t num_samples) {
     return circbuf_get(circbuf, (char *)dst, 2 * num_samples);
 }
+
+void print_histogram(FILE* file) {
+    unsigned* hist = circbuf_histogram(circbuf);
+    unsigned overflows = circbuf_overflows(circbuf);
+    unsigned sum = 0;
+    for (int i = 0; i < CIRCBUF_HISTOGRAM_LEN; ++i) sum += hist[i];
+    fprintf(file, "Histogram (%%):");
+    for (int i = 0; i < CIRCBUF_HISTOGRAM_LEN; ++i) {
+        fprintf(file, " %d", hist[i] * 100 / sum);
+    }
+    fprintf(file, "\n");
+    if (overflows > 0) {
+        fprintf(file, "Number of buffer overflows: %u\n", overflows);
+    }
+}
 #endif
 
 void generate_lut() {
@@ -648,6 +663,11 @@ void process(FILE* in, FILE* out) {
 #endif /* USE_LIBRTLSDR */
 
     info_out("\nRead %lu blocks.\n", i);
+
+#ifdef USE_LIBRTLSDR
+    info_out("\n");
+    print_histogram(info);
+#endif /* USE_LIBRTLSDR */
 }
 
 /* Parse arguments */
