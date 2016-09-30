@@ -20,7 +20,7 @@ from PyQt4 import QtGui as qt
 from PyQt4 import QtCore
 
 from thrifty.settings import load_args
-from thrifty.signal import Signal
+from thrifty.signal import Signal, compute_fft, compute_ifft
 from thrifty import block_data
 from thrifty import detect
 from thrifty import carrier_detect
@@ -32,8 +32,8 @@ from thrifty.setting_parsers import normalize_freq_range
 def _time_shift(samples, shift):
     freqs = np.fft.fftfreq(len(samples))
     fft_shift = np.exp(2j * np.pi * shift * freqs)
-    fft = np.fft.fft(samples)
-    return np.fft.ifft(fft * fft_shift)
+    fft = compute_fft(samples)
+    return compute_ifft(fft * fft_shift)
 
 
 DetectorResult = namedtuple('DetectorResult', [
@@ -47,7 +47,7 @@ class ForcibleDetector(object):
             override['carrier_thresh'] = (0, 0, 0)
         if force_corr:
             override['corr_thresh'] = (0, 0, 0)
-        dsettings = settings._replace(*override)
+        dsettings = settings._replace(**override)
 
         self.detector = detect.Detector(dsettings, yield_data=True)
 
@@ -639,7 +639,6 @@ def _main():
     detections = []
     for timestamp, block_idx, block in blocks:
         if not block_in_range(block_idx, args.blocks):
-            print("Skipping block #{}".format(block_idx))
             continue
         print("Generating plotter for block #{}".format(block_idx))
         detection = detector(timestamp, block_idx, block)
@@ -647,6 +646,8 @@ def _main():
             detections.append(detection)
             if len(detections) >= args.max:
                 break
+        else:
+            print("Skipping block #{}".format(block_idx))
 
     if args.export:
         for detection in detections:

@@ -6,21 +6,32 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import numpy as np
-import pyfftw
 
-pyfftw.interfaces.cache.enable()
+try:
+    import pyfftw
+    USE_PYFFTW = True
+except ImportError:
+    USE_PYFFTW = False
+
+
+if USE_PYFFTW:
+    pyfftw.interfaces.cache.enable()
 
 
 def compute_fft(samples):
-    """Computer FFT."""
-    return pyfftw.interfaces.numpy_fft.fft(samples)
-    # return np.fft.fft(samples)
+    """Compute FFT."""
+    if USE_PYFFTW:
+        return pyfftw.interfaces.numpy_fft.fft(samples)
+    else:
+        return np.fft.fft(samples)
 
 
 def compute_ifft(fft):
     """Compute inverse FFT."""
-    return pyfftw.interfaces.numpy_fft.ifft(fft)
-    # return np.fft.ifft(fft)
+    if USE_PYFFTW:
+        return pyfftw.interfaces.numpy_fft.ifft(fft)
+    else:
+        return np.fft.ifft(fft)
 
 
 def power(samples):
