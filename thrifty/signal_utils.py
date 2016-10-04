@@ -52,19 +52,26 @@ class Signal(np.ndarray):
     def __array_finalize__(self, obj):
         if obj is None:
             return
+        self._reset()
+
+    def __array_wrap__(self, obj, context=None):
+        # http://stackoverflow.com/questions/19223926/
+
+        if obj.shape == ():
+            return obj[()]  # if ufunc output is scalar, return it
+        else:
+            ret = np.ndarray.__array_wrap__(self, obj, context)
+            if isinstance(ret, Signal):
+                ret._reset()
+            return ret
+
+    def _reset(self):
         self._fft = None
         self._ifft = None
         self._rms = None
         self._mag = None
         self._power = None
         self._conj = None
-
-    def __array_wrap__(self, obj):
-        # http://stackoverflow.com/questions/19223926/
-        if obj.shape == ():
-            return obj[()]  # if ufunc output is scalar, return it
-        else:
-            return np.ndarray.__array_wrap__(self, obj)
 
     @property
     def fft(self):
@@ -116,4 +123,5 @@ class Signal(np.ndarray):
         """Calculate and cache the complex conjugate."""
         if self._conj is None:
             self._conj = np.ndarray.conj(self)
+            self._conj._conj = self
         return self._conj
