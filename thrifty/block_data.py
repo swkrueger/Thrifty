@@ -5,6 +5,8 @@ import time
 
 import numpy as np
 
+from thrifty.signal_utils import Signal
+
 
 def _raw_reader(stream, chunk_size):
     """Read raw chunks of data."""
@@ -93,7 +95,7 @@ def block_reader(stream, size, history):
     for block_idx, block in enumerate(_raw_block_reader(stream, new * 2)):
         new_data = raw_to_complex(block)
         data = np.concatenate([data[-history:], new_data])
-        yield time.time(), block_idx, data
+        yield time.time(), block_idx, Signal(data)
 
 
 def card_reader(stream):
@@ -126,4 +128,4 @@ def card_reader(stream):
         timestamp, idx, encoded = line.rstrip('\n').split(' ')
         raw = np.fromstring(base64.b64decode(encoded), dtype='uint8')
         data = raw_to_complex(raw)
-        yield float(timestamp), int(idx), data
+        yield float(timestamp), int(idx), Signal(data)

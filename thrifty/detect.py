@@ -12,7 +12,7 @@ from collections import namedtuple
 import numpy as np
 
 from thrifty.settings import load_args
-from thrifty import signal
+from thrifty.signal_utils import Signal
 from thrifty import toads_data
 from thrifty import util
 from thrifty.block_data import block_reader, card_reader
@@ -60,8 +60,7 @@ class Detector(object):
     def detect(self, timestamp, block_idx, block):
         """Process the given block of data."""
         assert len(block) == self.settings.block_len
-        block_signal = signal.Signal(block)
-        shifted_fft, carrier_info = self.sync(block_signal)
+        shifted_fft, carrier_info = self.sync(block)
 
         if shifted_fft is not None:  # detected
             detected, corr_info, corr = self.soa_estimate(shifted_fft)

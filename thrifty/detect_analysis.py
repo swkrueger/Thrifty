@@ -20,7 +20,7 @@ from PyQt4 import QtGui as qt
 from PyQt4 import QtCore
 
 from thrifty.settings import load_args
-from thrifty.signal import Signal, compute_fft, compute_ifft
+from thrifty.signal_utils import Signal, compute_fft, compute_ifft
 from thrifty import block_data
 from thrifty import detect
 from thrifty import carrier_detect
@@ -57,9 +57,9 @@ class ForcibleDetector(object):
 
         return DetectorResult(detected,
                               result,
-                              Signal(block),
-                              Signal(fft=shifted_fft),
-                              Signal(corr))
+                              block,
+                              shifted_fft.ifft,
+                              corr)
 
 
 class Plotter(object):
@@ -73,7 +73,7 @@ class Plotter(object):
 
     def plot_sample_histogram(self, ax):
         """Plot sample value histogram."""
-        raw = block_data.complex_to_raw(self.unsynced.samples)
+        raw = block_data.complex_to_raw(self.unsynced)
         hist = [0] * 256
         for value in raw:
             hist[value] += 1
@@ -87,11 +87,11 @@ class Plotter(object):
 
     def _plot_samples(self, signal, ax, mag, real, imag, rms):
         if mag:
-            ax.plot(np.abs(signal.samples), label='Mag')
+            ax.plot(np.abs(signal), label='Mag')
         if real:
-            ax.plot(np.real(signal.samples), label='Real')
+            ax.plot(np.real(signal), label='Real')
         if imag:
-            ax.plot(np.imag(signal.samples), label='Imag')
+            ax.plot(np.imag(signal), label='Imag')
         if rms:
             ax.axhline(signal.rms, label='RMS', linestyle='--')
         ax.legend()
@@ -123,8 +123,7 @@ class Plotter(object):
         ax.set_title('Frequency-compensated samples (magnitude)')
 
     def _scaled_ook_template(self, signal):
-        ook_template = self.settings.template
-        ook_template -= np.min(ook_template)
+        ook_template = self.settings.template - np.min(ook_template)
         ook_template *= signal.rms / Signal(ook_template).rms
         return ook_template
 
@@ -138,7 +137,7 @@ class Plotter(object):
         padded_start = max(0, start - padding)
         padded_stop = min(len(self.synced), stop + padding)
 
-        cut = Signal(self.synced.samples[padded_start:padded_stop])
+        cut = self.synced[padded_start:padded_stop]
         ook_template = self._scaled_ook_template(cut)
 
         ax.plot(np.arange(len(ook_template)) + start - padded_start + offset,
@@ -270,7 +269,7 @@ class Plotter(object):
             self.settings.history_len,
             len(self.settings.template))
 
-        corr_mag = np.abs(self.corr.samples)
+        corr_mag = np.abs(self.corr)
         ax.plot(corr_mag, label='Corr')
         ax.axvline(start, linestyle='--')
         ax.axvline(stop, linestyle='--')
@@ -287,7 +286,7 @@ class Plotter(object):
         offset = self.result.corr_info.offset
         start = max(0, peak_idx - zoom_length // 2)
         stop = min(len(self.corr), peak_idx + zoom_length // 2)
-        corr_mag = np.abs(self.corr.samples[start:stop])
+        corr_mag = np.abs(self.corr[start:stop])
         ax.plot(np.arange(len(corr_mag)) + start, corr_mag, label='Corr')
         ax.axvline(peak_idx + offset, linestyle='--')
         ax.set_title('Cross-correlation with template')
@@ -327,7 +326,7 @@ class Plotter(object):
         stop = min(len(self.corr), peak_sample + length // 2 + 1)
 
         peak_idx = peak_sample - start
-        corr_mag = np.abs(self.corr.samples[start:stop])
+        corr_mag = np.abs(self.corr[start:stop])
         ax.plot(np.arange(len(corr_mag)) - peak_idx, corr_mag,
                 marker='.', label='Xcorr')
         # TODO: plot noise and threshold
@@ -348,7 +347,7 @@ class Plotter(object):
         start = max(0, peak_sample - length // 2)
         stop = min(len(self.corr), peak_sample + length // 2 + 1)
 
-        corr_mag = np.abs(_time_shift(self.corr.samples[start:stop], offset))
+        corr_mag = np.abs(_time_shift(self.corr[start:stop], offset))
         peak_idx = peak_sample - start
         indices = np.arange(len(corr_mag)) - peak_idx
         ax.plot(indices, corr_mag, marker='.', label='Shifted xcorr')
@@ -360,10 +359,12 @@ class Plotter(object):
         #          autocorr[pidx] * (1+offset) + autocorr[pidx-1] * -offset)
         scale = corr_mag[peak_idx] / autocorr[peak_idx]
         ax.plot(indices, autocorr * scale, marker='.', label='Autocorr')
+        print(autocorr)
 
         ax.set_xlabel('Offset relative to peak (samples)')
         ax.set_ylabel('Correlation magnitude')
         ax.legend()
+        ax.grid()
 
     def plot_corr_peak_shifted_autocorr(self, ax, length=20):
         """Plot the xcorr peak and the shifted autocorr peak."""
@@ -373,10 +374,9 @@ class Plotter(object):
         stop = min(len(self.corr), peak_sample + length // 2 + 1)
 
         peak_idx = peak_sample - start
-        corr_mag = np.abs(self.corr.samples[start:stop])
+        corr_mag = np.abs(self.corr[start:stop])
         ax.plot(np.arange(len(corr_mag)) - peak_idx, corr_mag,
                 marker='.', label='Xcorr')
-        ax.hold()
 
         indices = np.arange(-8, 9)
         autocorr = self._generate_autocorr(indices, -offset)
@@ -483,7 +483,7 @@ class DetectionViewer(qt.QWidget):
         self.block_selector.currentChanged.connect(self.plot)
         self.cmd_selector.currentChanged.connect(self.plot)
 
-        self.fig = Figure()
+        self.fig = Figure(frameon=True)
         self.canvas = FigureCanvasQTAgg(self.fig)
         self.toolbar = NavigationToolbar2QT(self.canvas, parent)
         self.canvas.mpl_connect('key_press_event', self.on_key_press)
@@ -517,7 +517,8 @@ class DetectionViewer(qt.QWidget):
         detection = self.detections[detection_idx]
 
         cmd = self.cmds[self.cmd_selector.currentIndex()]
-        self.fig.clear()
+        self.fig.gca().cla()
+        self.fig.clf(keep_observers=False)
         _plot(self.fig, plotter, cmd)
         self.fig.set_facecolor('none')
         self.canvas.draw()

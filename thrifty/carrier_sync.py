@@ -25,7 +25,6 @@ from scipy.optimize import curve_fit
 
 from thrifty import toads_data
 from thrifty import carrier_detect
-from thrifty.signal import Signal
 
 
 class Synchronizer(object):
@@ -63,7 +62,7 @@ class Synchronizer(object):
         shifted_fft : :class:`numpy.ndarray` or None
         info : :class:`toads_data.CarrierSyncInfo`
         """
-        fft_mag = np.abs(signal.fft)
+        fft_mag = signal.fft.mag
         detected, peak_idx, peak_mag, noise_rms = self.detector(fft_mag)
         offset = 0
         if detected:
@@ -219,15 +218,14 @@ def freq_shift(signal, shift):
 
     Parameters
     ----------
-    fft : signal.Signal
+    signal : signal.Signal
     shift : float
         Number of (potentially fractional) shift to shift the signal by.
     """
     freqs = np.arange(len(signal)) * 1. / len(signal) - 0.5
     shift_signal = np.exp(2j * np.pi * shift * freqs)
-    shifted_time = signal.samples * shift_signal
-    shifted_signal = Signal(shifted_time)
-    shifted_fft = shifted_signal.fft
+    shifted_time = signal * shift_signal
+    shifted_fft = shifted_time.fft
     return shifted_fft
 
 

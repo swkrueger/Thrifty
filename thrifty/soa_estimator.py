@@ -9,8 +9,8 @@ import logging
 
 import numpy as np
 
-from thrifty import signal
 from thrifty import toads_data
+from thrifty.signal_utils import Signal
 
 
 def _clip_offset(offset):
@@ -61,24 +61,24 @@ class SoaEstimator(object):
     """
 
     def __init__(self, template, thresh_coeffs, block_len, history_len):
-        self.template = template
-        self.template_energy = np.sum(np.abs(template)**2)
+        self.template = Signal(template)
+        self.template_energy = np.sum(self.template.power)
 
-        self.corr_len = block_len - len(template) + 1
-        self.template_padded = np.concatenate([template,
+        template_len = len(template)
+        self.corr_len = block_len - template_len + 1
+        self.template_padded = np.concatenate([self.template,
                                                np.zeros(self.corr_len-1)])
-        template_fft = np.fft.fft(self.template_padded)
-        self.template_fft_conj = template_fft.conjugate()
+        self.template_padded = Signal(self.template_padded)
+        self.template_fft = self.template_padded.fft
 
         self.interpolate = gaussian_interpolation
-        self.window = calculate_window(block_len, history_len, len(template))
+        self.window = calculate_window(block_len, history_len, template_len)
         self.thresh_coeffs = thresh_coeffs
 
     def soa_estimate(self, fft):
         """Estimate the SoA of the given signal."""
         # assert len(fft) == block_len
-        corr_samples = self.despread(fft)
-        corr = signal.Signal(corr_samples)
+        corr = self.despread(fft)
         peak_idx, peak_mag = self.get_peak(corr)
         noise_rms = self.estimate_noise(peak_mag, fft)
         threshold = self.calculate_threshold(corr, noise_rms)
@@ -89,15 +89,15 @@ class SoaEstimator(object):
         offset = _clip_offset(offset)
         info = toads_data.CorrDetectionInfo(peak_idx, offset,
                                             peak_mag, noise_rms)
-        return detected, info, corr_samples
+        return detected, info, corr
 
     def __call__(self, fft):
         return self.soa_estimate(fft)
 
     def despread(self, fft):
         """Correlate / despread using FFT."""
-        corr_fft = fft * self.template_fft_conj
-        corr_full = signal.compute_ifft(corr_fft)
+        corr_fft = fft * self.template_fft.conj
+        corr_full = corr_fft.ifft
         corr = corr_full[:self.corr_len]
         return corr
 
@@ -112,12 +112,12 @@ class SoaEstimator(object):
     def estimate_noise(self, peak_mag, fft):
         """Estimate noise from signal's rms / power."""
         # Can be sped up by using RMS value of signal before carrier recovery.
-        signal_energy = signal.power(fft)
+        signal_energy = fft.rms**2
         # alternative: signal_energy = np.sum(np.abs(np.fft.ifft(fft))**2)
         signal_corr_energy = signal_energy * self.template_energy
 
-        # Subtract two times the peak power to compensate for both the
-        # correlation peak's energy and the energy of the unmodulated carrier.
+        # Subtract twice the peak power to compensate for both the correlation
+        # peak's energy and the energy of the unmodulated carrier.
         peak_power = peak_mag**2
         noise_power = (signal_corr_energy - 2*peak_power) / len(fft)
         noise_rms = np.sqrt(noise_power)

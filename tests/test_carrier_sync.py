@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 
 from thrifty import carrier_sync
-from thrifty.signal import Signal
+from thrifty.signal_utils import Signal
 
 
 FREQ_SHIFT_TESTDATA = [
@@ -27,7 +27,7 @@ def test_freq_shift(size, freq, shift):
     expected = np.exp(2j*np.pi*np.arange(size)/size*(freq+shift))
     expected_fft = np.fft.fft(expected)
 
-    got = carrier_sync.freq_shift(Signal(fft=signal_fft), shift)
+    got = carrier_sync.freq_shift(Signal(signal), shift)
 
     # import matplotlib.pyplot as plt
     # plt.plot(np.abs(signal_fft), label="Signal")
