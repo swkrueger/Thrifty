@@ -309,12 +309,14 @@ class Plotter(object):
         y1, y2, y3 = (corr_mag[peak_idx-1],
                       corr_mag[peak_idx],
                       corr_mag[peak_idx+1])
+        y1, y2, y3 = np.log(y1), np.log(y2), np.log(y3)  # Gaussian
         offset = 0.5 * (y3 - y1) / (2 * y2 - y1 - y3)
         a = (y1-y2) / ((offset+1)**2 - offset**2)
         y0 = y1 - a*(offset+1)**2
 
         x = np.linspace(offset-2, offset+2, 50)
         y = a*(x - offset)**2 + y0
+        y = np.exp(y)  # Gaussian
         ax.plot(x, y, **args)
 
     def plot_corr_peak_interpol(self, ax, length=10):
@@ -374,6 +376,7 @@ class Plotter(object):
         corr_mag = np.abs(self.corr.samples[start:stop])
         ax.plot(np.arange(len(corr_mag)) - peak_idx, corr_mag,
                 marker='.', label='Xcorr')
+        ax.hold()
 
         indices = np.arange(-8, 9)
         autocorr = self._generate_autocorr(indices, -offset)

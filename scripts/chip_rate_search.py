@@ -11,7 +11,7 @@ import numpy as np
 import scipy
 
 from thrifty.carrier_sync import make_syncer
-from thrifty.soa_estimator import make_soa_estimator
+from thrifty.soa_estimator import SoaEstimator
 from thrifty.block_data import card_reader
 from thrifty.setting_parsers import metric_float
 from thrifty import template_generate
@@ -47,10 +47,10 @@ def _match(fft, sps, bit_length, code_index):
         bit_length, code_index, sps)
 
     block_history = len(template) - 1
-    soa_estimate = make_soa_estimator(template=template,
-                                      thresh_coeffs=(0, 0, 0),
-                                      block_len=len(fft),
-                                      history_len=block_history)
+    soa_estimate = SoaEstimator(template=template,
+                                thresh_coeffs=(0, 0, 0),
+                                block_len=len(fft),
+                                history_len=block_history)
 
     detected, corr_info, _ = soa_estimate(fft)
     return detected, corr_info

@@ -18,7 +18,7 @@ from thrifty import util
 from thrifty.block_data import block_reader, card_reader
 from thrifty.carrier_sync import make_syncer
 from thrifty.setting_parsers import normalize_freq_range
-from thrifty.soa_estimator import make_soa_estimator
+from thrifty.soa_estimator import SoaEstimator
 
 
 DetectorSettings = namedtuple('DetectorSettings', [
@@ -49,7 +49,7 @@ class Detector(object):
             block_len=settings.block_len,
             carrier_len=settings.carrier_len)
 
-        self.soa_estimate = make_soa_estimator(
+        self.soa_estimate = SoaEstimator(
             template=settings.template,
             thresh_coeffs=settings.corr_thresh,
             block_len=settings.block_len,
@@ -115,16 +115,17 @@ class SummaryLineFormatter(object):
 
     def __call__(self, detected, result):
         """Summarize detection results."""
-        if self.add_dt:
-            # Calculate time interval between subsequent transmissions
-            dt_idx = result.carrier_info.bin // 2
-            prev_soa = self.prev_soas.get(dt_idx, result.soa)
-            if detected:
-                self.prev_soas[dt_idx] = result.soa
-            time_diff = (result.soa - prev_soa) / self.sample_rate
-            time_diff_str = " (+{:.1f}s)".format(time_diff)
-        else:
-            time_diff_str = ""
+        # if self.add_dt:
+        #     # Calculate time interval between subsequent transmissions
+        #     dt_idx = result.carrier_info.bin // 2
+        #     prev_soa = self.prev_soas.get(dt_idx, result.soa)
+        #     if detected:
+        #         self.prev_soas[dt_idx] = result.soa
+        #     time_diff = (result.soa - prev_soa) / self.sample_rate
+        #     time_diff_str = " (+{:.1f}s)".format(time_diff)
+        # else:
+        #     time_diff_str = ""
+        time_diff_str = ""
 
         carrier_detect = result.corr_info is not None
         carrier_freq = _carrier_freq(result.carrier_info,

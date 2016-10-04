@@ -13,8 +13,34 @@ from thrifty import signal
 from thrifty import toads_data
 
 
-def make_soa_estimator(template, thresh_coeffs, block_len, history_len):
-    """Create a SoA estimator that uses the default algorithms.
+def _clip_offset(offset):
+    return -0.6 if offset < -0.6 else 0.6 if offset > 0.6 else offset
+
+
+def calculate_window(block_len, history_len, template_len):
+    """Calculate interval of values that are unique in a correlation block.
+
+    Returns a half-open interval [start, stop).
+
+    The minimum `history_len` is `template_len - 1`, but extra values are
+    required at both sides of the correlation peak in order to perform
+    interpolation. It is thus necessary to increase the `history_size` of
+    the data blocks to secure padding in case the correlation peak is at
+    the edge of the correlation block. It is necessary to limit peak
+    detection to the range of values within the correlation block that are
+    unique to that block to prevent duplicate detections.
+    """
+    assert history_len >= template_len - 1
+    corr_len = block_len - template_len + 1
+    padding = history_len - template_len + 1
+    left_pad = padding // 2
+    right_pad = padding-left_pad
+    start, stop = left_pad, corr_len-right_pad
+    return start, stop
+
+
+class SoaEstimator(object):
+    """A SoA estimator that uses the default algorithms.
 
     The default despreader, detector and interpolator algorithms will be used:
      - Despreader: correlate using FFT
@@ -32,113 +58,103 @@ def make_soa_estimator(template, thresh_coeffs, block_len, history_len):
     history_len : int
         Number of samples at the end of each block that are repeated in the
         next block.
-
-    Returns
-    -------
-    soa_estimator : callable
     """
-    despread = make_despreader(template, block_len)
-    template_len = len(template)
-    template_energy = np.sum(template**2)
-    window = calculate_window(block_len, history_len, template_len)
 
-    def _soa_estimate(fft):
-        assert len(fft) == block_len
-        corr = despread(fft)
-        corr_mag = np.abs(corr)
-        noise_estimator = lambda x: estimate_noise(fft, template_energy, x)
-        detected, peak_idx, peak_ampl, noise_rms = peak_detect(
-            corr_mag, thresh_coeffs, window, noise_estimator)
-        if detected:
-            offset = parabolic_interpolation(corr_mag, peak_idx)
-        else:
-            offset = 0
+    def __init__(self, template, thresh_coeffs, block_len, history_len):
+        self.template = template
+        self.template_energy = np.sum(np.abs(template)**2)
+
+        self.corr_len = block_len - len(template) + 1
+        self.template_padded = np.concatenate([template,
+                                               np.zeros(self.corr_len-1)])
+        template_fft = np.fft.fft(self.template_padded)
+        self.template_fft_conj = template_fft.conjugate()
+
+        self.interpolate = gaussian_interpolation
+        self.window = calculate_window(block_len, history_len, len(template))
+        self.thresh_coeffs = thresh_coeffs
+
+    def soa_estimate(self, fft):
+        """Estimate the SoA of the given signal."""
+        # assert len(fft) == block_len
+        corr_samples = self.despread(fft)
+        corr = signal.Signal(corr_samples)
+        peak_idx, peak_mag = self.get_peak(corr)
+        noise_rms = self.estimate_noise(peak_mag, fft)
+        threshold = self.calculate_threshold(corr, noise_rms)
+        detected = peak_mag > threshold
+
+        # detected, peak_idx, peak_ampl, noise_rms = self.peak_detect(corr_mag)
+        offset = 0 if not detected else self.interpolate(corr, peak_idx)
+        offset = _clip_offset(offset)
         info = toads_data.CorrDetectionInfo(peak_idx, offset,
-                                            peak_ampl, noise_rms)
-        return detected, info, corr
+                                            peak_mag, noise_rms)
+        return detected, info, corr_samples
 
-    return _soa_estimate
+    def __call__(self, fft):
+        return self.soa_estimate(fft)
 
-
-def make_despreader(template, block_len):
-    """Correlate / despread using FFT."""
-    corr_len = block_len - len(template) + 1
-    template = np.concatenate([template, np.zeros(corr_len - 1)])
-    template_fft = np.fft.fft(template)
-
-    def _despread(fft):
-        corr_fft = fft * template_fft.conjugate()
+    def despread(self, fft):
+        """Correlate / despread using FFT."""
+        corr_fft = fft * self.template_fft_conj
         corr_full = signal.compute_ifft(corr_fft)
-        corr = corr_full[:corr_len]
+        corr = corr_full[:self.corr_len]
         return corr
 
-    return _despread
+    def get_peak(self, corr):
+        """Calculate peak index and estimate sqrt(power) of peak."""
+        corr_mag = corr.mag
+        start, stop = self.window
+        peak_idx = np.argmax(corr_mag[start:stop]) + start
+        peak_mag = corr_mag[peak_idx]
+        return peak_idx, peak_mag
+
+    def estimate_noise(self, peak_mag, fft):
+        """Estimate noise from signal's rms / power."""
+        # Can be sped up by using RMS value of signal before carrier recovery.
+        signal_energy = signal.power(fft)
+        # alternative: signal_energy = np.sum(np.abs(np.fft.ifft(fft))**2)
+        signal_corr_energy = signal_energy * self.template_energy
+
+        # Subtract two times the peak power to compensate for both the
+        # correlation peak's energy and the energy of the unmodulated carrier.
+        peak_power = peak_mag**2
+        noise_power = (signal_corr_energy - 2*peak_power) / len(fft)
+        noise_rms = np.sqrt(noise_power)
+        return noise_rms
+
+    def calculate_threshold(self, corr, noise_rms):
+        """Calculate detector threshold given the formula's coefficients."""
+        thresh_const, thresh_snr, thresh_stddev = self.thresh_coeffs
+        stddev = np.std(corr.mag) if thresh_stddev else 0
+        thresh = (thresh_const +
+                  thresh_snr * noise_rms**2 +
+                  thresh_stddev * stddev**2)
+        return np.sqrt(thresh)
 
 
-def calculate_window(block_len, history_len, template_len):
-    """Calculate the interval of values that are unique in a correlation block.
-
-    Returns a half-open interval [start, stop).
-
-    The minimum `history_len` is `template_len - 1`, but extra values are
-    required at both sides of the correlation peak in order to perform
-    interpolation. It is thus necessary to increase the `history_size` of the
-    data blocks to secure padding in case the correlation peak is at the edge
-    of the correlation block. It is necessary to limit peak detection to the
-    range of values within the correlation block that are unique to that block
-    to prevent duplicate detections.
-    """
-    assert history_len >= template_len - 1
-    corr_len = block_len - template_len + 1
-    padding = history_len - template_len + 1
-    left_pad = padding // 2
-    right_pad = padding-left_pad
-    start, stop = left_pad, corr_len-right_pad
-    return start, stop
-
-
-def peak_detect(corr_mag, thresh_coeffs, window, noise_estimator):
-    """Simple threshold detector to determine presence of template signal."""
-    start, stop = window
-    peak_idx = np.argmax(corr_mag[start:stop]) + start
-    peak_ampl = corr_mag[peak_idx]
-    if noise_estimator is not None:
-        noise_rms = noise_estimator(peak_ampl)
-    else:
-        noise_rms = 0
-    threshold = calculate_threshold(thresh_coeffs, corr_mag, noise_rms)
-    detected = peak_ampl > threshold
-
-    return detected, peak_idx, peak_ampl, noise_rms
-
-
-def estimate_noise(fft, template_energy, peak_mag):
-    """Estimate noise from signal's rms / power."""
-    # Can be sped up by using RMS value of signal before carrier recovery.
-    signal_energy = signal.power(fft)
-    # alternative: signal_energy = np.sum(np.abs(np.fft.ifft(fft))**2)
-    noise_power = (signal_energy * template_energy - peak_mag) / len(fft)
-    return np.sqrt(noise_power)
-
-
-def calculate_threshold(thresh_coeffs, corr_mag, noise_rms):
-    """Calculate detector threshold given the formula's coefficients."""
-    thresh_const, thresh_snr, thresh_stddev = thresh_coeffs
-    stddev = np.std(corr_mag) if thresh_stddev else 0
-    thresh = (thresh_const + thresh_snr * noise_rms**2
-              + thresh_stddev * stddev**2)
-    return np.sqrt(thresh)
-
-
-def parabolic_interpolation(corr_mag, peak_idx):
+def parabolic_interpolation(corr, peak_idx):
     """Sub-sample SoA estimation using parabolic interpolation."""
     # pylint: disable=invalid-name
-    if peak_idx == 0 or peak_idx == len(corr_mag) - 1:
+    if peak_idx == 0 or peak_idx == len(corr) - 1:
         logging.warn("Parabolic interpolation failed: peak_idx out of bounds."
                      " Please ensure history_len >= template_len + 1.")
         return 0
-    a, b, c = corr_mag[peak_idx-1], corr_mag[peak_idx], corr_mag[peak_idx+1]
+
+    a, b, c = corr.mag[peak_idx-1], corr.mag[peak_idx], corr.mag[peak_idx+1]
     offset = 0.5 * (c - a) / (2 * b - a - c)
-    if offset < -0.6 or offset > 0.6:
-        logging.warn("Large offset using parabolic interpolation: %f.", offset)
+    return offset
+
+
+def gaussian_interpolation(corr, peak_idx):
+    """Sub-sample SoA estimation using Gaussian interpolation."""
+    # pylint: disable=invalid-name
+    if peak_idx == 0 or peak_idx == len(corr) - 1:
+        logging.warn("Gaussian interpolation failed: peak_idx out of bounds."
+                     " Please ensure history_len >= template_len + 1.")
+        return 0
+
+    a, b, c = corr.mag[peak_idx-1], corr.mag[peak_idx], corr.mag[peak_idx+1]
+    a, b, c = np.log(a), np.log(b), np.log(c)
+    offset = 0.5 * (c - a) / (2 * b - a - c)
     return offset

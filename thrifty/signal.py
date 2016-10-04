@@ -46,6 +46,7 @@ class Signal(object):
     def __init__(self, samples=None, fft=None):
         self._samples = samples
         self._fft = fft
+        self._mag = None
 
         if self._samples is not None and self._fft is not None:
             assert len(self._samples) == len(self._fft)
@@ -70,6 +71,13 @@ class Signal(object):
         if self._fft is None and self._samples is not None:
             self._fft = compute_fft(self._samples)
         return self._fft
+
+    @property
+    def mag(self):
+        """Calculate the magnitude of the time-domain samples."""
+        if self._mag is None:
+            self._mag = np.abs(self.samples)
+        return self._mag
 
     def __len__(self):
         return self._length
