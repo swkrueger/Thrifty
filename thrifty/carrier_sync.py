@@ -84,7 +84,8 @@ class DefaultSynchronizer(Synchronizer):
     """A carrier synchronizer that uses the default algorithms.
 
     The default detector, interpolator and shifter will be used:
-     - Detector: Simple threshold detector without any matched filter.
+     - Detector: Simple threshold detector, using the shape of the Dirichlet
+                 kernel as matched filter.
      - Interpolator: Curve fitting of Dirichlet kernel to FFT.
      - Shifter: Use shift theorem to shift frequency in the time-domain.
 
@@ -103,7 +104,8 @@ class DefaultSynchronizer(Synchronizer):
     def __init__(self, thresh_coeffs, window, block_len, carrier_len):
         self.thresh_coeffs = thresh_coeffs
         self.window = window
-        self.weights = None  # or: dirichlet_weights(...)
+        filter_width = int(block_len / carrier_len) * 2
+        self.weights = dirichlet_weights(filter_width, block_len, carrier_len)
 
         interpolator = make_dirichlet_interpolator(block_len, carrier_len)
         Synchronizer.__init__(self, self.detect, interpolator, freq_shift)

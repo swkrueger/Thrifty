@@ -72,10 +72,11 @@ def detect(fft_mag, thresh_coeffs, window=None, peak_filter=None):
     peak_filter : :class:`numpy.ndarray`
         Coefficients of FIR filter (weights) applied to window in order to
         match the shape of the peak for a better estimate of the peak's energy.
-        The window is effectively correlated with the peak_filter array.
-        The coefficients will be normalised to `sum(peak_filter)`.
-        It is assumed that the peak is located at the largest coefficient.
-        Note that `window` should compensate for the decreased window size.
+        The window is effectively correlated with the peak_filter array. The
+        window should be normalized so that the coefficient at the peak is
+        unity. It is assumed that the peak is located at the largest
+        coefficient. Note that `window` should compensate for the decreased
+        window size.
 
     Returns
     -------
@@ -97,8 +98,13 @@ def detect(fft_mag, thresh_coeffs, window=None, peak_filter=None):
 
 
 def _estimate_noise(fft_mag, peak_mag):
-    sum_ = np.sum(fft_mag**2)
-    noise_power = (sum_ - peak_mag**2) / (len(fft_mag) - 1)
+    fft_energy = np.sum(fft_mag**2)
+    # The energy in the wide-band positioning signal and the narrow-band
+    # unmodulated carrier is about equal for OOK modulation and a pseudo-random
+    # code. Subtract two times the peak power to compensate for both the
+    # correlation peak's energy and the energy of the unmodulated carrier.
+    peak_power = peak_mag**2
+    noise_power = (fft_energy - 2*peak_power) / (len(fft_mag) - 1)
     return np.sqrt(noise_power)
 
 
@@ -120,13 +126,18 @@ def _get_window(array, window):
     return selection, start_idx
 
 
+def _filter(fft_mag, weights):
+    # TODO: calculate mag after applying filter to complex values
+    coeffs = weights[::-1]**2
+    return np.sqrt(scipy.signal.lfilter(coeffs, 1, fft_mag**2))
+
+
 def _window_peak(fft_mag, window, peak_filter):
     mags, start_idx = _get_window(fft_mag, window)
 
     if peak_filter is not None:
-        denom = np.sum(peak_filter)
-        mags = scipy.signal.lfilter(peak_filter[::-1], denom, mags)
-        filter_delay = np.max(peak_filter)
+        mags = _filter(mags, peak_filter)
+        filter_delay = np.argmax(peak_filter)
     else:
         filter_delay = 0
 
