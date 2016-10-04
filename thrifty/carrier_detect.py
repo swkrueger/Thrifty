@@ -80,9 +80,13 @@ def detect(fft_mag, thresh_coeffs, window=None, peak_filter=None):
     Returns
     -------
     detected : bool
+        Detection verdict.
     peak_idx : int
+        Estimated position of carrier in FFT.
     peak_mag : float
+        Estimated peak magnitude.
     noise_rms : float
+        Estimated noise rms.
     """
 
     peak_idx, peak_mag = _window_peak(fft_mag, window, peak_filter)

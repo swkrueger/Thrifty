@@ -16,7 +16,7 @@ from thrifty import signal
 from thrifty import toads_data
 from thrifty import util
 from thrifty.block_data import block_reader, card_reader
-from thrifty.carrier_sync import make_syncer
+from thrifty.carrier_sync import DefaultSynchronizer
 from thrifty.setting_parsers import normalize_freq_range
 from thrifty.soa_estimator import SoaEstimator
 
@@ -43,7 +43,7 @@ class Detector(object):
         self.rxid = rxid
         self.yield_data = yield_data
 
-        self.sync = make_syncer(
+        self.sync = DefaultSynchronizer(
             thresh_coeffs=settings.carrier_thresh,
             window=settings.carrier_window,
             block_len=settings.block_len,

@@ -28,13 +28,11 @@ from thrifty import carrier_detect
 from thrifty.signal import Signal
 
 
-def sync(signal, detector, interpolator, shifter):
-    """Connect carrier detector, interpolator, and frequency shifter.
+class Synchronizer(object):
+    """Connect carrier detector, interpolator, and frequency shifter together.
 
     Parameters
     ----------
-    signal : :class:`signal.Signal`
-        Signal to be synchronized.
     detector : callable -> (bool, int, float, float)
         Threshold detection algorithm that returns three values:
          - detected: detection verdict.
@@ -45,33 +43,48 @@ def sync(signal, detector, interpolator, shifter):
         Fractional bin frequency estimation algorithm.
     shifter : callable
         Frequency-domain shift algorithm.
-
-    Returns
-    -------
-    shifted_fft : :class:`numpy.ndarray` or None
-    info : :class:`toads_data.CarrierSyncInfo`
     """
-    fft_mag = np.abs(signal.fft)
-    detected, peak_idx, peak_mag, noise_rms = detector(fft_mag)
-    offset = 0
-    if detected:
-        if interpolator is not None:
-            offset = interpolator(fft_mag, peak_idx)
-        shifted_fft = shifter(signal, -(peak_idx+offset))
-        peak_mag = np.abs(shifted_fft[0])
-    else:
-        shifted_fft = None
-    info = toads_data.CarrierSyncInfo(peak_idx, offset, peak_mag, noise_rms)
-    return shifted_fft, info
+
+    def __init__(self, detector, interpolator, shifter):
+        self.detector = detector
+        self.interpolator = interpolator
+        self.shifter = shifter
+
+    def sync(self, signal):
+        """Detect presence of carrier, estimate frequency, and compensate.
+
+        Parameters
+        ----------
+        signal : :class:`signal.Signal`
+            Signal to be synchronized.
+
+        Returns
+        -------
+        shifted_fft : :class:`numpy.ndarray` or None
+        info : :class:`toads_data.CarrierSyncInfo`
+        """
+        fft_mag = np.abs(signal.fft)
+        detected, peak_idx, peak_mag, noise_rms = self.detector(fft_mag)
+        offset = 0
+        if detected:
+            if self.interpolator is not None:
+                offset = self.interpolator(fft_mag, peak_idx)
+            shifted_fft = self.shifter(signal, -(peak_idx+offset))
+        else:
+            shifted_fft = None
+        info = toads_data.CarrierSyncInfo(peak_idx, offset,
+                                          peak_mag, noise_rms)
+        return shifted_fft, info
+
+    def __call__(self, signal):
+        return self.sync(signal)
 
 
-def make_syncer(thresh_coeffs, window, block_len, carrier_len,
-                filter_len=0, interpol_width=6):
-    """Create a carrier synchronizer method that uses the default algorithms.
+class DefaultSynchronizer(Synchronizer):
+    """A carrier synchronizer that uses the default algorithms.
 
     The default detector, interpolator and shifter will be used:
-     - Detector: Simple threshold detector, using the shape of the Dirichlet
-                 kernel as matched filter.
+     - Detector: Simple threshold detector without any matched filter.
      - Interpolator: Curve fitting of Dirichlet kernel to FFT.
      - Shifter: Use shift theorem to shift frequency in the time-domain.
 
@@ -83,30 +96,24 @@ def make_syncer(thresh_coeffs, window, block_len, carrier_len,
         Limit detection to the frequency bins [start, stop].
     block_len : int
         Size of data blocks.
-    filter_len : int
-        Size of matched filter, in samples, to apply to obtain a better
-        estimate of the peak's mag.
     carrier_len : int
         The length of the carrier transmission, in number of samples.
-
-    Returns
-    -------
-    sync : callable
     """
-    # pylint: disable=too-many-arguments
-    if filter_len > 0:
-        rel = np.arange(-(filter_len//2), filter_len//2+1)
-        weights = dirichlet_kernel(rel, block_len, carrier_len)
-    else:
-        weights = None
 
-    def _detector(fft_mag):
-        return carrier_detect.detect(fft_mag, thresh_coeffs, window, weights)
-    interpolator = make_dirichlet_interpolator(interpol_width,
-                                               block_len, carrier_len)
-    # interpolator = make_polyfit_interpolator(4)
-    shifter = freq_shift
-    return lambda fft: sync(fft, _detector, interpolator, shifter)
+    def __init__(self, thresh_coeffs, window, block_len, carrier_len):
+        self.thresh_coeffs = thresh_coeffs
+        self.window = window
+        self.weights = None  # or: dirichlet_weights(...)
+
+        interpolator = make_dirichlet_interpolator(block_len, carrier_len)
+        Synchronizer.__init__(self, self.detect, interpolator, freq_shift)
+
+    def detect(self, fft_mag):
+        """Detect the presence of a carrier in a FFT."""
+        return carrier_detect.detect(fft_mag,
+                                     self.thresh_coeffs,
+                                     self.window,
+                                     self.weights)
 
 
 def dirichlet_kernel(xdata, block_len, carrier_len):
@@ -118,16 +125,25 @@ def dirichlet_kernel(xdata, block_len, carrier_len):
     N, W = block_len, carrier_len
     xdata = np.array(xdata, dtype=np.float64)
     with np.errstate(divide='ignore', invalid='ignore'):
-        # import sys
-        # print(np.sin(np.pi*W*xdata/N), file=sys.stderr)
-        # print(np.sin(np.pi*xdata/N), file=sys.stderr)
-        # print(W, file=sys.stderr)
         weights = np.sin(np.pi*W*xdata/N) / np.sin(np.pi*xdata/N) / W
         weights[np.isnan(weights)] = 1
     return weights
 
 
-def make_dirichlet_interpolator(width, block_len, carrier_len):
+def dirichlet_weights(filter_len, block_len, carrier_len):
+    """Create weights for matching peak to a Dirichlet kernel.
+
+    Parameters
+    ----------
+    filter_len : int
+        Size of matched filter, in samples, to apply to obtain a better
+        estimate of the peak's mag.
+    """
+    rel = np.arange(-(filter_len//2), filter_len//2+1)
+    return dirichlet_kernel(rel, block_len, carrier_len)
+
+
+def make_dirichlet_interpolator(block_len, carrier_len, width=6):
     """Estimate sub-bin carrier frequency by fitting a Dirichlet kernel.
 
     The actual carrier frequency may not fall on the center frequency of a
@@ -159,6 +175,7 @@ def make_dirichlet_interpolator(width, block_len, carrier_len):
         return amplitude * np.abs(dirichlet)
 
     def _interpolator(fft_mag, peak_idx):
+        """Curve fitting of Dirichlet kernel to FFT."""
         xdata = np.array(np.arange(-(width//2), width//2+1))
         ydata = fft_mag[peak_idx + xdata]
         initial_guess = (fft_mag[peak_idx], 0)

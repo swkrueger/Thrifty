@@ -10,7 +10,7 @@ import argparse
 import numpy as np
 import scipy
 
-from thrifty.carrier_sync import make_syncer
+from thrifty.carrier_sync import DefaultSynchronizer
 from thrifty.soa_estimator import SoaEstimator
 from thrifty.block_data import card_reader
 from thrifty.setting_parsers import metric_float
@@ -112,10 +112,10 @@ def _main():
     # Synchronize to carrier. It is assumed that a strong carrier is present.
     sps = args.sample_rate / args.chip_rate
     carrier_len = int((2**args.bit_length - 1) * sps)
-    sync = make_syncer(thresh_coeffs=(100, 0, 0),
-                       window=None,
-                       block_len=len(block),
-                       carrier_len=carrier_len)
+    sync = DefaultSynchronizer(thresh_coeffs=(100, 0, 0),
+                               window=None,
+                               block_len=len(block),
+                               carrier_len=carrier_len)
     fft = np.fft.fft(block)
     shifted_fft, _ = sync(fft)
     assert shifted_fft is not None
