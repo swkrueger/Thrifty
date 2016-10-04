@@ -137,7 +137,7 @@ def _window_peak(fft_mag, window, peak_filter):
 
     if peak_filter is not None:
         mags = _filter(mags, peak_filter)
-        filter_delay = np.argmax(peak_filter)
+        filter_delay = len(peak_filter) - np.argmax(peak_filter) - 1
     else:
         filter_delay = 0
 

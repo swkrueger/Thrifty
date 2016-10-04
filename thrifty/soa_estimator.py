@@ -103,11 +103,7 @@ class SoaEstimator(object):
 
     def get_peak(self, corr):
         """Calculate peak index and estimate sqrt(power) of peak."""
-        corr_mag = corr.mag
-        start, stop = self.window
-        peak_idx = np.argmax(corr_mag[start:stop]) + start
-        peak_mag = corr_mag[peak_idx]
-        return peak_idx, peak_mag
+        return get_peak(corr, self.window)
 
     def estimate_noise(self, peak_mag, fft):
         """Estimate noise from signal's rms / power."""
@@ -131,6 +127,15 @@ class SoaEstimator(object):
                   thresh_snr * noise_rms**2 +
                   thresh_stddev * stddev**2)
         return np.sqrt(thresh)
+
+
+def get_peak(corr, window):
+    """Calculate peak index and estimate sqrt(power) of peak."""
+    corr_mag = corr.mag
+    start, stop = window
+    peak_idx = np.argmax(corr_mag[start:stop]) + start
+    peak_mag = corr_mag[peak_idx]
+    return peak_idx, peak_mag
 
 
 def parabolic_interpolation(corr, peak_idx):

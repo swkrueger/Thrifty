@@ -103,6 +103,7 @@ def test_loadargs(tmpdir):
 
     config, args = settings.load_args(parser, ['xyzzy', 'foo'],
                                       argv=argv, definitions=DEFINITIONS)
+    args.pop('verbose')
     assert len(config) == 2
     assert len(args) == 1
     assert config['xyzzy'] == 'xyz'

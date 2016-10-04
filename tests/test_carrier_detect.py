@@ -73,8 +73,8 @@ def test_detect_window(freq_min, freq_max, carrier_freq, expected_detected):
 
 
 FILTER_TESTDATA = [
-    ([0, 1, 2, 8, 4, 1, 0], [0.8, 1, 0.7], (3, 4.96)),
-    ([0, 1, 2, 8, 4, 1, 0], [1, 0.5, 0.5], (4, 5.25)),
+    ([0, 1, 2, 8, 4, 1, 0], [0.8, 1, 0.7], (3, 74.4)),
+    ([0, 1, 2, 8, 4, 1, 0], [1, 0.5, 0.5], (3, 68.25)),
 ]
 
 
@@ -82,5 +82,6 @@ FILTER_TESTDATA = [
 def test_peak_filter(fft_mag, peak_filter, expected):
     """Test detect() with a peak filter."""
     _, peak_idx, peak_energy, _ = carrier_detect.detect(
-        np.array(fft_mag), (0, 0, 0), None, peak_filter)
-    assert (peak_idx, peak_energy) == expected
+        np.array(fft_mag), (0, 0, 0), None, np.array(peak_filter))
+    assert peak_idx == expected[0]
+    np.testing.assert_allclose(peak_energy, np.sqrt(expected[1]))

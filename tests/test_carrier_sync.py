@@ -22,7 +22,6 @@ FREQ_SHIFT_TESTDATA = [
 def test_freq_shift(size, freq, shift):
     """Test freq_shift() with sinusoidal signals."""
     signal = np.exp(2j*np.pi*np.arange(size)/size*freq)
-    signal_fft = np.fft.fft(signal)
 
     expected = np.exp(2j*np.pi*np.arange(size)/size*(freq+shift))
     expected_fft = np.fft.fft(expected)
@@ -61,6 +60,6 @@ def test_dirichlet_interpolator(offset):
     signal = np.concatenate([carrier, np.zeros(block_len-carrier_len)])
     signal_fft = np.abs(np.fft.fft(signal))
     interpolator = carrier_sync.make_dirichlet_interpolator(
-        width, block_len, carrier_len)
+        block_len, carrier_len, width)
     got = interpolator(signal_fft, peak_idx)
     np.testing.assert_allclose(got, offset, atol=1e-8, rtol=1e-8)

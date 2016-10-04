@@ -7,6 +7,7 @@ import numpy as np
 import scipy.signal
 
 from thrifty import soa_estimator
+from thrifty.signal_utils import Signal
 
 
 # 5-bit (length 31) Gold code
@@ -34,10 +35,12 @@ DESPREADER_TESTDATA = [0, 1, 10, BLOCK_LEN-len(TEMPLATE),
 @pytest.mark.parametrize("pos", DESPREADER_TESTDATA)
 def test_despreader_peaks(pos):
     """Test correlation peaks with signal at different positions."""
-    despread = soa_estimator.make_despreader(TEMPLATE, BLOCK_LEN)
+    estimator = soa_estimator.SoaEstimator(TEMPLATE, None,
+                                           BLOCK_LEN,
+                                           len(TEMPLATE))
     block = gen_block(pos)
     fft = np.fft.fft(block)
-    corr = despread(fft)
+    corr = estimator.despread(fft)
     corr_abs = np.abs(corr)
 
     assert len(corr) == BLOCK_LEN - len(TEMPLATE) + 1
@@ -55,10 +58,11 @@ def test_despreader_peaks(pos):
 @pytest.mark.parametrize("pos", DESPREADER_TESTDATA)
 def test_despreader_cross_validate(pos):
     """Cross-validate despreader against scipy's correlate function."""
-    despread = soa_estimator.make_despreader(TEMPLATE, BLOCK_LEN)
+    estimator = soa_estimator.SoaEstimator(TEMPLATE, None,
+                                           BLOCK_LEN, len(TEMPLATE))
     block = gen_block(pos)
     fft = np.fft.fft(block)
-    corr = despread(fft)
+    corr = estimator.despread(fft)
     corr2 = scipy.signal.correlate(block, TEMPLATE, mode='valid')
     np.testing.assert_allclose(corr, corr2, atol=1e-12, rtol=1e-12)
 
@@ -91,16 +95,15 @@ DETECT_TESTDATA = [
 
 
 @pytest.mark.parametrize("idx,corr_len,window,expected", DETECT_TESTDATA)
-def test_detect(idx, corr_len, window, expected):
+def test_get_peak(idx, corr_len, window, expected):
     """Test peak detection with a constant threshold."""
-    corr_mag = np.zeros(corr_len)
-    corr_mag[idx] = 100
-    thresh_coeffs = (99, 0, 0)
+    corr = Signal(np.zeros(corr_len))
+    corr[idx] = 100
 
-    detected, peak_idx, peak_ampl, _ = soa_estimator.peak_detect(
-        corr_mag, thresh_coeffs, window, None)
+    peak_idx, peak_mag = soa_estimator.get_peak(corr, window)
+    detected = peak_mag > 99
 
     assert detected == expected
     if expected:
         assert peak_idx == idx
-        assert peak_ampl == 100
+        assert peak_mag == 100
