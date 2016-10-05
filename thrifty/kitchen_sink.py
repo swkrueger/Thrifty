@@ -6,18 +6,21 @@ from collections import namedtuple
 
 import logging
 
+import numpy as np
+
 from thrifty.block_data import card_reader
 from thrifty.detect import Detector
 from thrifty import identify
 from thrifty import matchmaker
 from thrifty import tdoa_est
+from thrifty import pos_est
 
 
 DEFAULT_DETECTOR = Detector  # pylint: disable=invalid-name
 DEFAULT_INTEGRATOR = identify.integrate
 DEFAULT_MATCHER = matchmaker.match_toads
 DEFAULT_TDOA_EST = tdoa_est.process
-# DEFAULT_POS_EST =
+DEFAULT_POS_EST = pos_est.solve
 
 
 PostdetectSettings = namedtuple('PostdetectSettings', [
@@ -50,7 +53,8 @@ def detect_all(cards, settings, detector=DEFAULT_DETECTOR):
 def postdetect(toad, settings,
                integrator=DEFAULT_INTEGRATOR,
                matcher=DEFAULT_MATCHER,
-               tdoa_estimator=DEFAULT_TDOA_EST):
+               tdoa_estimator=DEFAULT_TDOA_EST,
+               pos_estimator=DEFAULT_POS_EST):
     """Identify, match, estimate TDOA, estimate position."""
 
     # Identify transmitters and remove duplicates
@@ -63,16 +67,19 @@ def postdetect(toad, settings,
 
     # Estimate TDOAs
     logging.info(" * TDOA estimate")
+    beacon_pos = {k: np.array(v) for k, v in settings.beacon_pos.iteritems()}
+    rx_pos = {k: np.array(v) for k, v in settings.rx_pos.iteritems()}
     tdoas, _, _ = tdoa_estimator(toads=toads,
                                  matches=matches,
                                  window_size=settings.tdoa_est_window,
-                                 beacon_pos=settings.beacon_pos,
-                                 rx_pos=settings.rx_pos,
+                                 beacon_pos=beacon_pos,
+                                 rx_pos=rx_pos,
                                  sample_rate=settings.sample_rate)
 
     # Estimate positions
     logging.info(" * Positions estimate")
-    pos = None
+    tdoa_array = tdoa_est.tdoa_array(tdoas)
+    pos = pos_estimator(tdoa_array, rx_pos)
 
     return PostdetectResult(toads=toads,
                             matches=matches,

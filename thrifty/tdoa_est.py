@@ -28,6 +28,11 @@ MAX_TDOA = 30e3 / SPEED_OF_LIGHT
 TdoaInfo = collections.namedtuple('TdoaInfo', [
     'timestamp', 'tx', 'rx0', 'rx1', 'tdoa', 'snr', 'model_quality'])
 
+TDOA_DTYPE = {'names': ('timestamp', 'tx', 'rx0', 'rx1',
+                        'tdoa', 'snr', 'model_quality'),
+              'formats': ('f8', 'i4', 'i4', 'i4',
+                          'f8', 'f8', 'f8')}
+
 
 def make_detection_extractor(detections, matches):
     rxpair_detections = collections.defaultdict(list)
@@ -191,25 +196,26 @@ def filter_invalid(tdoas):
     return valid, outliers
 
 
+def tdoa_array(tdoa_info):
+    return np.array(tdoa_info, dtype=TDOA_DTYPE)
+
+
 def save_tdoas(output, tdoas):
     for tdoa in tdoas:
-        print("{ts:.06f} {tx} {rx0} {rx1} {tdoa} {snr} {mq}".format(
-            ts=tdoa.timestamp, tx=tdoa.tx, rx0=tdoa.rx0, rx1=tdoa.rx1,
-            tdoa=tdoa.tdoa * 1e9, snr=tdoa.snr, mq=tdoa.model_quality),
-            file=output)
+        # TODO: np.savetxt(tdoa_array(tdoas)) might be better
+        fields = tdoa._asdict()
+        fields['timestamp'] = "%.06f" % fields['timestamp']
+        fields['tdoa'] *= 1e9
+        print(*fields.values(), file=output)
 
 
 def load_tdoa_array(fname):
-    data = np.loadtxt(fname,
-                      dtype={'names': ('timestamp', 'tx', 'rx0', 'rx1',
-                                       'tdoa', 'snr', 'model_quality'),
-                             'formats': ('f8', 'i4', 'i4', 'i4',
-                                         'f8', 'f8', 'f8')})
+    data = np.loadtxt(fname, dtype=TDOA_DTYPE)
     data['tdoa'] /= 1e9
     return data
 
 
-def load_pos_file(file_):
+def load_pos_config(file_):
     strings = parse_kvconfig(file_)
     txfreqs = {int(id_): np.array([float(x) for x in pos_str.split()])
                for id_, pos_str in strings.iteritems()}
@@ -262,8 +268,8 @@ def _main():
 
     toads = toads_data.load_toads(args.toads)
     matches = matchmaker.load_matches(args.matches)
-    rx_pos = load_pos_file(args.rx_pos)
-    beacon_pos = load_pos_file(args.beacon_pos)
+    rx_pos = load_pos_config(args.rx_pos)
+    beacon_pos = load_pos_config(args.beacon_pos)
     tdoas, failures, invalid = process(toads, matches, args.window_size,
                                        beacon_pos, rx_pos, args.sample_rate)
 

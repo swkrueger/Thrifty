@@ -29,6 +29,7 @@ Valid commands are:
     match             Match detections from multiple receivers
     clock_sync        Build clock sync model from beacon transmissions
     tdoa              Estimate TDOA by synchronising with beacon transmissions
+    pos               Estimate position from TDOA estimates
 
     ~ Analysis tools ~
     scope             Live time-domain and frequency-domain plots with triggers
@@ -49,6 +50,7 @@ MODULES = {
     'match': 'thrifty.matchmaker',
     'clock_sync': 'thrifty.clock_sync',
     'tdoa': 'thrifty.tdoa_est',
+    'pos': 'thrifty.pos_est',
     'analyze_toads': 'thrifty.toads_analysis',
     'analyze_detect': 'thrifty.detect_analysis',
     'template_generate': 'thrifty.template_generate',
