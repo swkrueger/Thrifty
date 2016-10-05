@@ -19,7 +19,7 @@ from thrifty import pos_est
 DEFAULT_DETECTOR = Detector  # pylint: disable=invalid-name
 DEFAULT_INTEGRATOR = identify.integrate
 DEFAULT_MATCHER = matchmaker.match_toads
-DEFAULT_TDOA_EST = tdoa_est.process
+DEFAULT_TDOA_EST = tdoa_est.estimate_tdoas
 DEFAULT_POS_EST = pos_est.solve
 
 
@@ -69,17 +69,16 @@ def postdetect(toad, settings,
     logging.info(" * TDOA estimate")
     beacon_pos = {k: np.array(v) for k, v in settings.beacon_pos.iteritems()}
     rx_pos = {k: np.array(v) for k, v in settings.rx_pos.iteritems()}
-    tdoas, _, _ = tdoa_estimator(toads=toads,
-                                 matches=matches,
-                                 window_size=settings.tdoa_est_window,
-                                 beacon_pos=beacon_pos,
-                                 rx_pos=rx_pos,
-                                 sample_rate=settings.sample_rate)
+    tdoas, _ = tdoa_estimator(detections=toads,
+                              matches=matches,
+                              window_size=settings.tdoa_est_window,
+                              beacon_pos=beacon_pos,
+                              rx_pos=rx_pos,
+                              sample_rate=settings.sample_rate)
 
     # Estimate positions
     logging.info(" * Positions estimate")
-    tdoa_array = tdoa_est.tdoa_array(tdoas)
-    pos = pos_estimator(tdoa_array, rx_pos)
+    pos = pos_estimator(tdoas, rx_pos)
 
     return PostdetectResult(toads=toads,
                             matches=matches,

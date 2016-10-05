@@ -26,12 +26,17 @@ MAX_TDOA = 30e3 / SPEED_OF_LIGHT
 
 
 TdoaInfo = collections.namedtuple('TdoaInfo', [
-    'timestamp', 'tx', 'rx0', 'rx1', 'tdoa', 'snr', 'model_quality'])
+    'rx0', 'rx1', 'tdoa', 'snr', 'model_quality', 'det0_idx', 'det1_idx'])
 
-TDOA_DTYPE = {'names': ('timestamp', 'tx', 'rx0', 'rx1',
-                        'tdoa', 'snr', 'model_quality'),
-              'formats': ('f8', 'i4', 'i4', 'i4',
-                          'f8', 'f8', 'f8')}
+TdoaGroup = collections.namedtuple('TdoaGroup', [
+    'group_id', 'timestamp', 'tx', 'tdoas'])
+
+TDOA_DTYPE = {'names': ('rx0', 'rx1', 'tdoa', 'snr', 'model_quality',
+                        'det0_idx', 'det1_idx'),
+              'formats': ('i4', 'i4', 'f8', 'f8', 'f8', 'i4', 'i4')}
+
+MATRIX_DTYPE = {'names': ('group_id', 'timestamp', 'tx') + TDOA_DTYPE['names'],
+                'formats': ('i4', 'f8', 'i4') + TDOA_DTYPE['formats']}
 
 
 def make_detection_extractor(detections, matches):
@@ -146,17 +151,18 @@ def estimate_tdoas(detections, matches, window_size, beacon_pos, rx_pos,
                    sample_rate, model_builder=build_model):
     beacon_matches = [m for m in matches
                       if detections[m[0]].txid in beacon_pos]
-    mobile_matches = [m for m in matches
+    mobile_matches = [(i, m) for i, m in enumerate(matches)
                       if detections[m[0]].txid not in beacon_pos]
 
     def _beacon_tdoa(rxid0, rxid1, beaconid):
         return (_dist(rx_pos[rxid0], beacon_pos[beaconid]) -
                 _dist(rx_pos[rxid1], beacon_pos[beaconid])) / SPEED_OF_LIGHT
 
-    tdoas = []
+    tdoa_groups = []
     failures = []
     extractor = make_detection_extractor(detections, beacon_matches)
-    for group in mobile_matches:
+    for group_idx, group in mobile_matches:
+        tdoas = []
         group_timestamp = detections[group[0]].timestamp
         for det0_id, det1_id in itertools.combinations(group, 2):
             if detections[det0_id].rxid > detections[det1_id].rxid:
@@ -179,40 +185,61 @@ def estimate_tdoas(detections, matches, window_size, beacon_pos, rx_pos,
             model_quality = estimate_model_quality(model, beacon_pairs)
             tdoa = model(det0, det1)
 
+            # Ignore outliers
+            if abs(tdoa) >= MAX_TDOA:
+                failures.append((det0_id, det1_id))
+                continue
+
             snr0 = (det0.corr_info.energy / det0.corr_info.noise)**2
             snr1 = (det1.corr_info.energy / det1.corr_info.noise)**2
             snr = (snr0 + snr1) / 2
-            tdoas.append(TdoaInfo(group_timestamp, det0.txid, det0.rxid,
-                                  det1.rxid, tdoa, snr, model_quality))
 
-    return tdoas, failures
+            tdoas.append(TdoaInfo(rx0=det0.rxid,
+                                  rx1=det1.rxid,
+                                  tdoa=tdoa,
+                                  snr=snr,
+                                  model_quality=model_quality,
+                                  det0_idx=det0_id,
+                                  det1_idx=det1_id))
 
-# def estimate_tdoas(detections, matches, estimator)
+        if len(tdoas) > 0:
+            tdoas_array = np.array(tdoas, dtype=TDOA_DTYPE)
+            tdoa_groups.append(TdoaGroup(group_id=group_idx,
+                                         timestamp=group_timestamp,
+                                         tx=det0.txid,
+                                         tdoas=tdoas_array))
 
-
-def filter_invalid(tdoas):
-    valid = [t for t in tdoas if abs(t.tdoa) < MAX_TDOA]
-    outliers = [t for t in tdoas if abs(t.tdoa) >= MAX_TDOA]
-    return valid, outliers
-
-
-def tdoa_array(tdoa_info):
-    return np.array(tdoa_info, dtype=TDOA_DTYPE)
-
-
-def save_tdoas(output, tdoas):
-    for tdoa in tdoas:
-        # TODO: np.savetxt(tdoa_array(tdoas)) might be better
-        fields = tdoa._asdict()
-        fields['timestamp'] = "%.06f" % fields['timestamp']
-        fields['tdoa'] *= 1e9
-        print(*fields.values(), file=output)
+    return tdoa_groups, failures
 
 
-def load_tdoa_array(fname):
-    data = np.loadtxt(fname, dtype=TDOA_DTYPE)
+def save_tdoa_groups(output, tdoa_groups):
+    for group in tdoa_groups:
+        for tdoa in group.tdoas:
+            tdoa = tdoa.copy()
+            tdoa['tdoa'] *= 1e9
+            print(group.group_id, "%.06f" % group.timestamp, group.tx,
+                  *tdoa, file=output)
+
+
+def load_tdoa_matrix(fname):
+    data = np.loadtxt(fname, dtype=MATRIX_DTYPE)
     data['tdoa'] /= 1e9
     return data
+
+
+def load_tdoa_groups(fname):
+    matrix = load_tdoa_matrix(fname)
+    tdoa_groups = collections.OrderedDict()
+    for row in matrix:
+        group_id = row['group_id']
+        fields = list(TDOA_DTYPE['names'])
+        if group_id not in tdoa_groups:
+            in_group = matrix['group_id'] == group_id
+            tdoa_groups[group_id] = TdoaGroup(group_id=group_id,
+                                              timestamp=row['timestamp'],
+                                              tx=row['tx'],
+                                              tdoas=matrix[fields][in_group])
+    return tdoa_groups.values()
 
 
 def load_pos_config(file_):
@@ -220,14 +247,6 @@ def load_pos_config(file_):
     txfreqs = {int(id_): np.array([float(x) for x in pos_str.split()])
                for id_, pos_str in strings.iteritems()}
     return txfreqs
-
-
-def process(toads, matches, window_size, beacon_pos, rx_pos, sample_rate):
-    """Estimate TDOAs and filter."""
-    all_tdoas, failures = estimate_tdoas(toads, matches, window_size,
-                                         beacon_pos, rx_pos, sample_rate)
-    tdoas, invalid = filter_invalid(all_tdoas)
-    return tdoas, failures, invalid
 
 
 def _main():
@@ -270,13 +289,13 @@ def _main():
     matches = matchmaker.load_matches(args.matches)
     rx_pos = load_pos_config(args.rx_pos)
     beacon_pos = load_pos_config(args.beacon_pos)
-    tdoas, failures, invalid = process(toads, matches, args.window_size,
-                                       beacon_pos, rx_pos, args.sample_rate)
+    tdoa_groups, failures = estimate_tdoas(toads, matches, args.window_size,
+                                           beacon_pos, rx_pos,
+                                           args.sample_rate)
 
-    print("Number of TDOA estimations:", len(tdoas))
+    print("Number of TDOA estimations:", len(tdoa_groups))
     print("Number of TDOA estimation failures:", len(failures))
-    print("Number of invalid TDOA estimations:", len(invalid))
-    save_tdoas(args.output, tdoas)
+    save_tdoa_groups(args.output, tdoa_groups)
 
 
 if __name__ == '__main__':
