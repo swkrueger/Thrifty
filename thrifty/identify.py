@@ -190,11 +190,17 @@ def load_txfreqs(file_):
     return txfreqs
 
 
+def integrate(detections, nominal_freqs=None):
+    """Identify and filter."""
+    identify_transmitters(detections, nominal_freqs)
+    filtered = filter_duplicates(detections)
+    return filtered
+
+
 def generate_toads(output, toad_globs, nominal_freqs):
     detections, filenames = load_toad_files(toad_globs)
     output.write("# source_files: [%s]\n" % (' '.join(filenames)))
-    identify_transmitters(detections, nominal_freqs)
-    filtered = filter_duplicates(detections)
+    filtered = integrate(detections, nominal_freqs)
 
     print("Removed {} duplicates from {} detections.".format(
         len(detections)-len(filtered), len(detections)))

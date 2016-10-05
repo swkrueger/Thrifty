@@ -216,6 +216,14 @@ def load_pos_file(file_):
     return txfreqs
 
 
+def process(toads, matches, window_size, beacon_pos, rx_pos, sample_rate):
+    """Estimate TDOAs and filter."""
+    all_tdoas, failures = estimate_tdoas(toads, matches, window_size,
+                                         beacon_pos, rx_pos, sample_rate)
+    tdoas, invalid = filter_invalid(all_tdoas)
+    return tdoas, failures, invalid
+
+
 def _main():
     import argparse
 
@@ -256,9 +264,9 @@ def _main():
     matches = matchmaker.load_matches(args.matches)
     rx_pos = load_pos_file(args.rx_pos)
     beacon_pos = load_pos_file(args.beacon_pos)
-    all_tdoas, failures = estimate_tdoas(toads, matches, args.window_size,
-                                         beacon_pos, rx_pos, args.sample_rate)
-    tdoas, invalid = filter_invalid(all_tdoas)
+    tdoas, failures, invalid = process(toads, matches, args.window_size,
+                                       beacon_pos, rx_pos, args.sample_rate)
+
     print("Number of TDOA estimations:", len(tdoas))
     print("Number of TDOA estimation failures:", len(failures))
     print("Number of invalid TDOA estimations:", len(invalid))

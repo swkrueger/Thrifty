@@ -158,7 +158,7 @@ class SummaryLineFormatter(object):
         return info
 
 
-def _main():
+def detector_cli(detector_class):
     # pylint: disable=too-many-locals
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -204,7 +204,7 @@ def _main():
                                 carrier_window=window,
                                 template=template,
                                 corr_thresh=config.corr_threshold)
-    detections = Detector(settings, blocks, rxid=config.rxid)
+    detections = detector_class(settings, blocks, rxid=config.rxid)
     summary_liner = SummaryLineFormatter(config.sample_rate,
                                          config.block_size,
                                          add_dt=True)
@@ -216,6 +216,10 @@ def _main():
         if not args.quiet:
             # Output summary line
             print(summary_liner(detected, result), file=info_out)
+
+
+def _main():
+    detector_cli(Detector)
 
 
 if __name__ == '__main__':
