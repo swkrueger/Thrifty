@@ -23,7 +23,7 @@ from thrifty import toads_data
 from thrifty.settings import parse_kvconfig
 
 
-def detect_transmitter_windows(freqs):
+def detect_transmitter_windows(freqs, verbose=False):
     """Detect transmitter frequency windows automatically.
 
     Parameters
@@ -40,7 +40,6 @@ def detect_transmitter_windows(freqs):
     cnts = np.bincount(freqs - first_bin)
     last_bin = first_bin + len(cnts)
     thresh = np.std(cnts) * 2
-    print("New bin threshold:", thresh)
 
     peaks = []
     below_thresh = True
@@ -61,14 +60,16 @@ def detect_transmitter_windows(freqs):
                             np.array(edges) + first_bin,
                             [last_bin]])
 
-    print("Freq bin counts: {} ++ {}".format(first_bin, cnts))
-    print("Detected {} transmitter(s):".format(len(edges) - 1))
+    if verbose:
+        print("Window threshold:", thresh)
+        print("Freq bin counts: {} ++ {}".format(first_bin, cnts))
+        print("Detected {} transmitter(s):".format(len(edges) - 1))
 
-    for i in range(len(edges) - 1):
-        start, stop = edges[i], edges[i+1] - 1
-        bins = cnts[start-first_bin:stop-first_bin+1]
-        print(" {}: bins {} - {}".format(i, start, stop))
-        print("     {}".format(bins))
+        for i in range(len(edges) - 1):
+            start, stop = edges[i], edges[i+1] - 1
+            bins = cnts[start-first_bin:stop-first_bin+1]
+            print(" {}: bins {} - {}".format(i, start, stop))
+            print("     {}".format(bins))
 
     return edges
 
@@ -80,12 +81,18 @@ def auto_classify_transmitters(detections):
     for detection in detections:
         detections_by_rx[detection.rxid].append(detection)
 
-    print(len(detections))
     edges = {}
     for rxid, rx_detections in detections_by_rx.iteritems():
-        print(rxid, len(rx_detections))
         freqs = np.array([d.carrier_info.bin for d in rx_detections])
-        edges[rxid] = detect_transmitter_windows(freqs)[:-1]
+        rx_edges = detect_transmitter_windows(freqs)
+
+        summary = ("Detected {} transmitter(s) at RX {}:"
+                   .format(len(rx_edges) - 1, rxid))
+        for i in range(len(rx_edges) - 1):
+            summary += " {}-{}".format(rx_edges[i], rx_edges[i+1] - 1)
+        print(summary)
+
+        edges[rxid] = rx_edges[:-1]
 
     txids = [np.digitize(d.carrier_info.bin, edges[d.rxid]) - 1
              for d in detections]

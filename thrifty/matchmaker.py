@@ -44,6 +44,7 @@ def match_toads(toads, window, min_match=2):
     killed = [False] * len(toads)
     matches = []
     misses = []
+    collisions = []
 
     for i in range(num_det):
         if killed[i]:
@@ -61,9 +62,7 @@ def match_toads(toads, window, min_match=2):
 
             if toads[j].rxid in rx_match != -1:
                 prev = rx_match[toads[j].rxid]
-                logging.warning("Multiple detections for RX %d and TX %d: "
-                                "detection #%d and #%d collides.",
-                                toads[j].rxid, toads[j].txid, prev, j)
+                collisions.append((prev, j))
                 prev_ampl = toads[prev].corr_info.energy
                 this_ampl = toads[j].corr_info.energy
                 k = prev if prev_ampl > this_ampl else j
@@ -78,7 +77,7 @@ def match_toads(toads, window, min_match=2):
         else:
             misses.append(i)
 
-    return matches, misses
+    return matches, misses, collisions
 
 
 def load_matches(file_):
@@ -133,14 +132,25 @@ def _main():
                         type=int, default=2,
                         help="minimum number of receivers that should detect "
                              "a transmission for a match to be valid")
+    parser.add_argument('-v', '--verbose', help="Increase output verbosity",
+                        action="store_true")
     args = parser.parse_args()
 
     toads = toads_data.load_toads(args.input)
     toads.sort(cmp=lambda x, y: x.timestamp < y.timestamp)
-    matches, misses = match_toads(toads, args.window, args.num_matches)
+    matches, misses, collisions = match_toads(toads,
+                                              args.window,
+                                              args.num_matches)
+
+    if args.verbose:
+        for idx1, idx2 in collisions:
+            print("Multiple detections for RX %d and TX %d: "
+                  "detection #%d and #%d collides." %
+                  (toads[idx1].rxid, toads[idx1].txid, idx1, idx2))
 
     print("Number of matches:", len(matches))
     print("Number of misses:", len(misses))
+    print("Number of collisions:", len(collisions))
 
     save_matches(matches, args.output)
 
