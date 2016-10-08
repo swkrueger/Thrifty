@@ -13,8 +13,8 @@ from thrifty import toads_data
 from thrifty.signal_utils import Signal
 
 
-def _clip_offset(offset):
-    return -0.6 if offset < -0.6 else 0.6 if offset > 0.6 else offset
+def _clip_offset(offset, max_=0.6):
+    return -max_ if offset < -max_ else max_ if offset > max_ else offset
 
 
 def calculate_window(block_len, history_len, template_len):
@@ -85,7 +85,7 @@ class SoaEstimator(object):
         detected = peak_mag > threshold
 
         # detected, peak_idx, peak_ampl, noise_rms = self.peak_detect(corr_mag)
-        offset = 0 if not detected else self.interpolate(corr, peak_idx)
+        offset = 0 if not detected else self.interpolate(corr.mag, peak_idx)
         offset = _clip_offset(offset)
         info = toads_data.CorrDetectionInfo(peak_idx, offset,
                                             peak_mag, noise_rms)
@@ -138,28 +138,28 @@ def get_peak(corr, window):
     return peak_idx, peak_mag
 
 
-def parabolic_interpolation(corr, peak_idx):
+def parabolic_interpolation(corr_mag, peak_idx):
     """Sub-sample SoA estimation using parabolic interpolation."""
     # pylint: disable=invalid-name
-    if peak_idx == 0 or peak_idx == len(corr) - 1:
+    if peak_idx == 0 or peak_idx == len(corr_mag) - 1:
         logging.warn("Parabolic interpolation failed: peak_idx out of bounds."
                      " Please ensure history_len >= template_len + 1.")
         return 0
 
-    a, b, c = corr.mag[peak_idx-1], corr.mag[peak_idx], corr.mag[peak_idx+1]
+    a, b, c = corr_mag[peak_idx-1], corr_mag[peak_idx], corr_mag[peak_idx+1]
     offset = 0.5 * (c - a) / (2 * b - a - c)
     return offset
 
 
-def gaussian_interpolation(corr, peak_idx):
+def gaussian_interpolation(corr_mag, peak_idx):
     """Sub-sample SoA estimation using Gaussian interpolation."""
     # pylint: disable=invalid-name
-    if peak_idx == 0 or peak_idx == len(corr) - 1:
+    if peak_idx == 0 or peak_idx == len(corr_mag) - 1:
         logging.warn("Gaussian interpolation failed: peak_idx out of bounds."
                      " Please ensure history_len >= template_len + 1.")
         return 0
 
-    a, b, c = corr.mag[peak_idx-1], corr.mag[peak_idx], corr.mag[peak_idx+1]
+    a, b, c = corr_mag[peak_idx-1], corr_mag[peak_idx], corr_mag[peak_idx+1]
     a, b, c = np.log(a), np.log(b), np.log(c)
     offset = 0.5 * (c - a) / (2 * b - a - c)
     return offset

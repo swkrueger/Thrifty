@@ -35,7 +35,7 @@ def patch_module(module, **override):
     """Override a module's parameters."""
     def _patched_module(*args, **kwargs):
         kwargs.update(override)
-        module(*args, **kwargs)
+        return module(*args, **kwargs)
     return _patched_module
 
 
@@ -63,7 +63,7 @@ def postdetect(toad, settings,
 
     # Match detections
     logging.info(" * Match")
-    matches, _ = matcher(toads, settings.match_window)
+    matches, _, _ = matcher(toads, settings.match_window)
 
     # Estimate TDOAs
     logging.info(" * TDOA estimate")

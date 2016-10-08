@@ -20,3 +20,16 @@ def fft_bin(idx, fft_len):
         return idx
     else:
         return idx - fft_len
+
+
+def find_nearest(array, values):
+    """For each value in values, find the index of the nearest value in
+    array."""
+    indices = np.searchsorted(array, values)
+    for i, idx in enumerate(indices):
+        value = values[i]
+        if idx > 0 and (idx == len(array) or
+                        np.abs(value - array[idx-1]) <
+                        np.abs(value - array[idx])):
+            indices[i] = idx - 1
+    return indices

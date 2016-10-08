@@ -32,6 +32,15 @@ def compute_ifft(fft):
         return np.fft.ifft(fft)
 
 
+def time_shift(signal, shift):
+    """Shift the signal by the given number of (fractional) samples."""
+    if not isinstance(signal, Signal):
+        signal = Signal(signal)
+    freqs = np.fft.fftfreq(len(signal))
+    fft_shift = np.exp(-2j * np.pi * shift * freqs)
+    return (signal.fft * fft_shift).ifft
+
+
 class Signal(np.ndarray):
     """Representation of signal with caching and on-demand calculations."""
     # Based on https://docs.scipy.org/doc/numpy/user/basics.subclassing.html
@@ -111,9 +120,9 @@ class Signal(np.ndarray):
         """Calculate signal's root mean square value."""
         if self._rms is None:
             if self._fft is not None and self._fft._rms is not None:
-                self._rms = self._fft._rms / len(self)
+                self._rms = self._fft._rms / np.sqrt(len(self))
             elif self._ifft is not None and self._ifft._rms is not None:
-                self._rms = self._ifft._rms * len(self)
+                self._rms = self._ifft._rms * np.sqrt(len(self))
             else:
                 self._rms = np.sqrt(np.mean(self.power))
         return self._rms

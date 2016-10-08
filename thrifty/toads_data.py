@@ -48,10 +48,11 @@ class DetectionResult(object):
         """Serialize detection as a string written to a .toad(s) file."""
         # pylint: disable=invalid-name
         corr, carr = self.corr_info, self.carrier_info
-        s = '{t:.6f} {b} {s} {ps} {po} {pe} {pn} {cb} {co} {ce} {cn}'.format(
-            t=self.timestamp, b=self.block, s=self.soa,
-            ps=corr.sample, po=corr.offset, pe=corr.energy, pn=corr.noise,
-            cb=carr.bin, co=carr.offset, ce=carr.energy, cn=carr.noise)
+        s = ('{t:.6f} {b} {s:.8f} {ps} {po} {pe} {pn} '
+             '{cb} {co} {ce} {cn}'.format(
+             t=self.timestamp, b=self.block, s=self.soa,
+             ps=corr.sample, po=corr.offset, pe=corr.energy, pn=corr.noise,
+             cb=carr.bin, co=carr.offset, ce=carr.energy, cn=carr.noise))
         # Prepend TX and RX IDs
         if self.txid is not None:
             s = str(self.txid) + ' ' + s

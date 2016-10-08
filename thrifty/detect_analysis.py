@@ -93,6 +93,9 @@ class Plotter(object):
         if imag:
             ax.plot(np.imag(signal), label='Imag')
         if rms:
+            print(signal.rms, signal.fft.rms)
+            print(np.sqrt(np.mean(signal * np.conj(signal))))
+            print(np.sqrt(np.mean(signal.fft * np.conj(signal.fft))))
             ax.axhline(signal.rms, label='RMS', linestyle='--')
         ax.legend()
         ax.set_xlabel('Sample')
@@ -123,7 +126,7 @@ class Plotter(object):
         ax.set_title('Frequency-compensated samples (magnitude)')
 
     def _scaled_ook_template(self, signal):
-        ook_template = self.settings.template - np.min(ook_template)
+        ook_template = self.settings.template - np.min(self.settings.template)
         ook_template *= signal.rms / Signal(ook_template).rms
         return ook_template
 
@@ -359,7 +362,6 @@ class Plotter(object):
         #          autocorr[pidx] * (1+offset) + autocorr[pidx-1] * -offset)
         scale = corr_mag[peak_idx] / autocorr[peak_idx]
         ax.plot(indices, autocorr * scale, marker='.', label='Autocorr')
-        print(autocorr)
 
         ax.set_xlabel('Offset relative to peak (samples)')
         ax.set_ylabel('Correlation magnitude')
