@@ -132,7 +132,7 @@ class SummaryLineFormatter(object):
                                      self.sample_rate)
         snr = util.snr(result.carrier_info.energy, result.carrier_info.noise)
         info = ("blk={blk}; carrier: {det} @ {freq:.3f} kHz"
-                " / {idx:>3.0f}:{offset:.2f}, "
+                " / {idx:>3.0f}:{offset:+.2f}, "
                 "SNR = {ampl:>4.0f} / {noise:>2.0f} = {snr:>5.2f} dB"
                 .format(blk=result.block,
                         det="yes" if carrier_detect else "no ",

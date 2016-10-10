@@ -103,8 +103,9 @@ class DefaultSynchronizer(Synchronizer):
     def __init__(self, thresh_coeffs, window, block_len, carrier_len):
         self.thresh_coeffs = thresh_coeffs
         self.window = window
-        filter_width = int(block_len / carrier_len) * 2
-        self.weights = dirichlet_weights(filter_width, block_len, carrier_len)
+        #filter_width = (int(block_len / carrier_len) - 1) * 2
+        #self.weights = dirichlet_weights(filter_width, block_len, carrier_len)
+        self.weights = None
 
         interpolator = make_dirichlet_interpolator(block_len, carrier_len)
         Synchronizer.__init__(self, self.detect, interpolator, freq_shift)
@@ -141,10 +142,13 @@ def dirichlet_weights(filter_len, block_len, carrier_len):
         estimate of the peak's mag.
     """
     rel = np.arange(-(filter_len//2), filter_len//2+1)
-    return dirichlet_kernel(rel, block_len, carrier_len)
+    coeffs = dirichlet_kernel(rel, block_len, carrier_len)
+    energy = np.sqrt(np.sum(coeffs**2))
+    return coeffs / energy
 
 
-def make_dirichlet_interpolator(block_len, carrier_len, width=6):
+def make_dirichlet_interpolator(block_len, carrier_len,
+                                width=6, return_amplitude=False):
     """Estimate sub-bin carrier frequency by fitting a Dirichlet kernel.
 
     The actual carrier frequency may not fall on the center frequency of a
@@ -164,6 +168,8 @@ def make_dirichlet_interpolator(block_len, carrier_len, width=6):
         Size of data blocks.
     carrier_len : int
         The length of the carrier transmission, in number of samples.
+    return_amplitude : bool
+        In addition to the offset, also return the estimated peak amplitude.
 
     References
     ----------
@@ -181,8 +187,11 @@ def make_dirichlet_interpolator(block_len, carrier_len, width=6):
         ydata = fft_mag[peak_idx + xdata]
         initial_guess = (fft_mag[peak_idx], 0)
         popt, _ = curve_fit(_fit_model, xdata, ydata, p0=initial_guess)
-        _, fit_offset = popt
-        return fit_offset
+        amplitude, fit_offset = popt
+        if return_amplitude:
+            return amplitude, fit_offset
+        else:
+            return fit_offset
 
     return _interpolator
 

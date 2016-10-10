@@ -20,10 +20,11 @@ from PyQt4 import QtGui as qt
 from PyQt4 import QtCore
 
 from thrifty.settings import load_args
-from thrifty.signal_utils import Signal, compute_fft, compute_ifft
+from thrifty.signal_utils import Signal
 from thrifty import block_data
 from thrifty import detect
 from thrifty import carrier_detect
+from thrifty import carrier_sync
 from thrifty import soa_estimator
 from thrifty import util
 from thrifty.setting_parsers import normalize_freq_range
@@ -32,8 +33,7 @@ from thrifty.setting_parsers import normalize_freq_range
 def _time_shift(samples, shift):
     freqs = np.fft.fftfreq(len(samples))
     fft_shift = np.exp(2j * np.pi * shift * freqs)
-    fft = compute_fft(samples)
-    return compute_ifft(fft * fft_shift)
+    return (samples.fft * fft_shift).ifft
 
 
 DetectorResult = namedtuple('DetectorResult', [
@@ -71,6 +71,19 @@ class Plotter(object):
         self.settings = settings
         self.sample_rate = sample_rate
 
+        filter_width = int(settings.block_len / settings.carrier_len) * 2
+        filter_weights = carrier_sync.dirichlet_weights(filter_width,
+                                                        settings.block_len,
+                                                        settings.carrier_len)
+        filtered, delay = carrier_detect._filter(self.unsynced.fft.mag,
+                                                 filter_weights)
+        self.filtered_fft = Signal(filtered[delay:])
+
+        self.carrier_interpolator = carrier_sync.make_dirichlet_interpolator(
+            settings.block_len,
+            settings.carrier_len,
+            return_amplitude=True)
+
     def plot_sample_histogram(self, ax):
         """Plot sample value histogram."""
         raw = block_data.complex_to_raw(self.unsynced)
@@ -87,15 +100,12 @@ class Plotter(object):
 
     def _plot_samples(self, signal, ax, mag, real, imag, rms):
         if mag:
-            ax.plot(np.abs(signal), label='Mag')
+            ax.plot(signal.mag, label='Mag')
         if real:
             ax.plot(np.real(signal), label='Real')
         if imag:
             ax.plot(np.imag(signal), label='Imag')
         if rms:
-            print(signal.rms, signal.fft.rms)
-            print(np.sqrt(np.mean(signal * np.conj(signal))))
-            print(np.sqrt(np.mean(signal.fft * np.conj(signal.fft))))
             ax.axhline(signal.rms, label='RMS', linestyle='--')
         ax.legend()
         ax.set_xlabel('Sample')
@@ -184,7 +194,7 @@ class Plotter(object):
         else:
             transf = lambda v: v * y_scale
 
-        fft_mag = np.abs(fft)
+        fft_mag = fft.mag
         y = np.fft.fftshift(fft_mag)
         ax.plot(bins * x_scale, transf(y), **kwargs)
 
@@ -265,6 +275,65 @@ class Plotter(object):
         self._plot_spectrum(self.unsynced.fft, ax,
                             scaled=True, power=True, db_scale=True)
 
+    def plot_filtered_fft(self, ax, zoom_to_window=False, zoom_padding=10):
+        """Plot the FFT of the unsynchronized signal."""
+        self._plot_spectrum(self.filtered_fft, ax,
+                            scaled=False, power=False, db_scale=False,
+                            label='FFT')
+        self._plot_fft_window(ax, zoom_to_window, zoom_padding)
+        ax.legend(loc='best')
+        ax.set_title('FFT after sinc match filter' +
+                     ' (window)' if zoom_to_window else '')
+
+    def _plot_carrier_interpolation(self, ax, indices, offset,
+                                    peak_mag, **args):
+        dirichlet = carrier_sync.dirichlet_kernel(indices,
+                                                  self.settings.block_len,
+                                                  self.settings.carrier_len)
+        ax.plot(indices + offset, np.abs(dirichlet) * peak_mag)
+
+    def plot_carrier_peak_unsynced(self, ax, length=12):
+        """Plot the carrier peak and the interpolation function."""
+        peak_sample = self.result.carrier_info.bin
+        start = max(0, peak_sample - length // 2)
+        stop = min(len(self.unsynced), peak_sample + length // 2 + 1)
+
+        peak_idx = peak_sample - start
+        fft_mag = self.unsynced.fft[start:stop].mag
+        indices = np.arange(len(fft_mag)) - peak_idx
+        ax.plot(indices, fft_mag, marker='.', label='FFT')
+        # TODO: plot noise and threshold
+
+        amplitude, offset = self.carrier_interpolator(fft_mag, peak_idx)
+        self._plot_carrier_interpolation(ax, indices, offset, amplitude,
+                                         label='Interpolation')
+        ax.axvline(offset, linestyle='--')
+
+        ax.set_xlabel('Offset relative to peak (samples)')
+        ax.set_ylabel('FFT magnitude')
+        ax.set_xlim(-(length//2), length//2)
+        ax.legend()
+        ax.grid()
+
+    def plot_carrier_peak_synced(self, ax, length=12):
+        """Plot the carrier peak and the interpolation function."""
+        padding = length // 2
+        indices = np.arange(-padding, padding+1)
+        fft_mag = self.synced.fft.mag
+
+        ax.plot(indices, fft_mag[indices], marker='.', label='FFT (synced)')
+        # TODO: plot noise and threshold
+
+        peak_mag = fft_mag[0]
+        self._plot_carrier_interpolation(ax, indices, 0, peak_mag,
+                                         label='Interpolation')
+
+        ax.set_xlabel('Offset relative to peak (samples)')
+        ax.set_ylabel('FFT magnitude')
+        ax.set_xlim(-(length//2), length//2)
+        ax.legend()
+        ax.grid()
+
     def plot_corr(self, ax):
         """Plot correlation signal."""
         start, stop = soa_estimator.calculate_window(
@@ -272,7 +341,7 @@ class Plotter(object):
             self.settings.history_len,
             len(self.settings.template))
 
-        corr_mag = np.abs(self.corr)
+        corr_mag = self.corr.mag
         ax.plot(corr_mag, label='Corr')
         ax.axvline(start, linestyle='--')
         ax.axvline(stop, linestyle='--')
@@ -289,7 +358,7 @@ class Plotter(object):
         offset = self.result.corr_info.offset
         start = max(0, peak_idx - zoom_length // 2)
         stop = min(len(self.corr), peak_idx + zoom_length // 2)
-        corr_mag = np.abs(self.corr[start:stop])
+        corr_mag = self.corr[start:stop].mag
         ax.plot(np.arange(len(corr_mag)) + start, corr_mag, label='Corr')
         ax.axvline(peak_idx + offset, linestyle='--')
         ax.set_title('Cross-correlation with template')
@@ -329,7 +398,7 @@ class Plotter(object):
         stop = min(len(self.corr), peak_sample + length // 2 + 1)
 
         peak_idx = peak_sample - start
-        corr_mag = np.abs(self.corr[start:stop])
+        corr_mag = self.corr[start:stop].mag
         ax.plot(np.arange(len(corr_mag)) - peak_idx, corr_mag,
                 marker='.', label='Xcorr')
         # TODO: plot noise and threshold
@@ -350,7 +419,7 @@ class Plotter(object):
         start = max(0, peak_sample - length // 2)
         stop = min(len(self.corr), peak_sample + length // 2 + 1)
 
-        corr_mag = np.abs(_time_shift(self.corr[start:stop], offset))
+        corr_mag = _time_shift(self.corr[start:stop], offset).mag
         peak_idx = peak_sample - start
         indices = np.arange(len(corr_mag)) - peak_idx
         ax.plot(indices, corr_mag, marker='.', label='Shifted xcorr')
@@ -376,7 +445,7 @@ class Plotter(object):
         stop = min(len(self.corr), peak_sample + length // 2 + 1)
 
         peak_idx = peak_sample - start
-        corr_mag = np.abs(self.corr[start:stop])
+        corr_mag = self.corr[start:stop].mag
         ax.plot(np.arange(len(corr_mag)) - peak_idx, corr_mag,
                 marker='.', label='Xcorr')
 
@@ -416,8 +485,9 @@ class Plotter(object):
         """Plot fft, psd_synced."""
         self.plot_unsynced_fft(fig.add_subplot(221), zoom_to_window=True)
         self.plot_synced_psd(fig.add_subplot(222))
-        # TODO: unsynced_fft_peak (i.t.o. bins)
-        # TODO: synced_fft_peak
+        # self.plot_filtered_fft(fig.add_subplot(223), zoom_to_window=True)
+        self.plot_carrier_peak_unsynced(fig.add_subplot(223))
+        self.plot_carrier_peak_synced(fig.add_subplot(224))
         fig.suptitle('Spectra')
 
     def plot_corrs(self, fig):
@@ -439,6 +509,9 @@ _PLOT_COMMAND_STRINGS = {
     'fft': Plotter.plot_unsynced_fft,
     'fft_window': Plotter.plot_unsynced_fft_window,
     'fft_synced': Plotter.plot_synced_fft,
+    'filtered_fft': Plotter.plot_filtered_fft,
+    'carrier_peak_unsynced': Plotter.plot_carrier_peak_unsynced,
+    'carrier_peak_synced': Plotter.plot_carrier_peak_synced,
     'psd': Plotter.plot_unsynced_psd,
     'psd_synced': Plotter.plot_synced_psd,
     'corr': Plotter.plot_corr,
@@ -582,14 +655,14 @@ def _main():
                              for c, f in
                              sorted(_PLOT_COMMAND_STRINGS.iteritems())]
 
-    figure_cmd_descriptions = ["  {:14s} {}".format(c, f.__doc__.split('\n')[0])
-                             for c, f in
-                             sorted(_FIGURE_COMMAND_STRINGS.iteritems())]
+    fig_cmd_descriptions = ["  {:14s} {}".format(c, f.__doc__.split('\n')[0])
+                            for c, f in
+                            sorted(_FIGURE_COMMAND_STRINGS.iteritems())]
 
     description = "{}\n\nplot commands:\n{}\n\nfigure commands:\n{}".format(
                   __doc__,
                   '\n'.join(plot_cmd_descriptions),
-                  '\n'.join(figure_cmd_descriptions))
+                  '\n'.join(fig_cmd_descriptions))
 
     parser = argparse.ArgumentParser(
         description=description,

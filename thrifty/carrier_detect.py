@@ -73,10 +73,9 @@ def detect(fft_mag, thresh_coeffs, window=None, peak_filter=None):
         Coefficients of FIR filter (weights) applied to window in order to
         match the shape of the peak for a better estimate of the peak's energy.
         The window is effectively correlated with the peak_filter array. The
-        window should be normalized so that the coefficient at the peak is
-        unity. It is assumed that the peak is located at the largest
-        coefficient. Note that `window` should compensate for the decreased
-        window size.
+        weights should be normalized such that sum(weights**2) = 1. It is
+        assumed that the peak is located at the largest coefficient. Note that
+        `window` should compensate for the decreased window size.
 
     Returns
     -------
@@ -127,17 +126,20 @@ def _get_window(array, window):
 
 
 def _filter(fft_mag, weights):
-    # TODO: calculate mag after applying filter to complex values
+    """Apply the filter represented by the given weights.
+    The weights should be normalized such that the total energy of the
+    coefficients is unity, thus sum(weights**2) = 1."""
+    delay = len(weights) - np.argmax(weights) - 1
     coeffs = weights[::-1]**2
-    return np.sqrt(scipy.signal.lfilter(coeffs, 1, fft_mag**2))
+    filtered = np.sqrt(scipy.signal.lfilter(coeffs, 1, fft_mag**2))
+    return filtered, delay
 
 
 def _window_peak(fft_mag, window, peak_filter):
     mags, start_idx = _get_window(fft_mag, window)
 
     if peak_filter is not None:
-        mags = _filter(mags, peak_filter)
-        filter_delay = len(peak_filter) - np.argmax(peak_filter) - 1
+        mags, filter_delay = _filter(mags, peak_filter)
     else:
         filter_delay = 0
 
