@@ -70,6 +70,7 @@ class Plotter(object):
         self.corr = detection.corr
         self.settings = settings
         self.sample_rate = sample_rate
+        self.template = Signal(self.settings.template)
 
         filter_width = int(settings.block_len / settings.carrier_len) * 2
         filter_weights = carrier_sync.dirichlet_weights(filter_width,
@@ -83,6 +84,11 @@ class Plotter(object):
             settings.block_len,
             settings.carrier_len,
             return_amplitude=True)
+
+        self.corr_threshold = soa_estimator.calculate_threshold(
+            self.corr,
+            self.result.corr_info.noise,
+            self.settings.corr_thresh)
 
     def plot_sample_histogram(self, ax):
         """Plot sample value histogram."""
@@ -98,7 +104,7 @@ class Plotter(object):
         ax.set_title('Sample value histogram')
         ax.grid()
 
-    def _plot_samples(self, signal, ax, mag, real, imag, rms):
+    def _plot_samples(self, signal, ax, mag, real, imag, rms, noise=True):
         if mag:
             ax.plot(signal.mag, label='Mag')
         if real:
@@ -107,6 +113,9 @@ class Plotter(object):
             ax.plot(np.imag(signal), label='Imag')
         if rms:
             ax.axhline(signal.rms, label='RMS', linestyle='--')
+        if noise:
+            noise_est = self.result.carrier_info.noise / np.sqrt(len(signal))
+            ax.axhline(noise_est, label='Noise', linestyle='--', color='g')
         ax.legend()
         ax.set_xlabel('Sample')
         ax.set_ylabel('Value')
@@ -136,7 +145,7 @@ class Plotter(object):
         ax.set_title('Frequency-compensated samples (magnitude)')
 
     def _scaled_ook_template(self, signal):
-        ook_template = self.settings.template - np.min(self.settings.template)
+        ook_template = self.template - np.min(self.template)
         ook_template *= signal.rms / Signal(ook_template).rms
         return ook_template
 
@@ -144,7 +153,7 @@ class Plotter(object):
                               padding=0, zoom_length=100):
         """Plot positioning signal with template overlayed on top."""
         start = self.result.corr_info.sample
-        stop = start + len(self.settings.template)
+        stop = start + len(self.template)
         offset = self.result.corr_info.offset
 
         padded_start = max(0, start - padding)
@@ -202,10 +211,11 @@ class Plotter(object):
             threshold = carrier_detect._calculate_threshold(
                 fft_mag, self.settings.carrier_thresh,
                 self.result.carrier_info.noise)
-            ax.axhline(transf(threshold), label='Threshold', linestyle='--')
+            ax.axhline(transf(threshold), label='Threshold',
+                       linestyle='--', color='g')
         if plot_noise:
             ax.axhline(transf(self.result.carrier_info.noise),
-                       label='Noise', linestyle=':')
+                       label='Noise', linestyle='--', color='r')
 
         if scaled:
             ax.set_xlabel('Frequency (kHz)')
@@ -339,7 +349,7 @@ class Plotter(object):
         start, stop = soa_estimator.calculate_window(
             self.settings.block_len,
             self.settings.history_len,
-            len(self.settings.template))
+            len(self.template))
 
         corr_mag = self.corr.mag
         ax.plot(corr_mag, label='Corr')
@@ -347,10 +357,14 @@ class Plotter(object):
         ax.axvline(stop, linestyle='--')
         peak_pos = self.result.corr_info.sample + self.result.corr_info.offset
         ax.axvline(peak_pos, linestyle='--')
-        ax.axhline(self.result.corr_info.noise, label='Noise', linestyle='--')
-        # TODO: plot threshold
+        ax.axhline(self.result.corr_info.noise, label='Noise',
+                   linestyle='--', color='g')
+        ax.axhline(self.corr_threshold, label='Threshold',
+                   linestyle='--', color='r')
         ax.set_xlabel('Delay (samples)')
         ax.set_ylabel('Corr magnitude')
+        ax.legend(loc='best')
+        ax.grid()
 
     def plot_corr_zoomed(self, ax, zoom_length=400):
         """Plot correlation signal, zoomed to exhibit multipath effects."""
@@ -365,7 +379,7 @@ class Plotter(object):
         ax.grid()
 
     def _generate_autocorr(self, indices, shift=0):
-        template = self.settings.template
+        template = self.template
         autocorr = []
         for index in indices:
             x = abs(index)

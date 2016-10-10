@@ -121,12 +121,17 @@ class SoaEstimator(object):
 
     def calculate_threshold(self, corr, noise_rms):
         """Calculate detector threshold given the formula's coefficients."""
-        thresh_const, thresh_snr, thresh_stddev = self.thresh_coeffs
-        stddev = np.std(corr.mag) if thresh_stddev else 0
-        thresh = (thresh_const +
-                  thresh_snr * noise_rms**2 +
-                  thresh_stddev * stddev**2)
-        return np.sqrt(thresh)
+        return calculate_threshold(corr, noise_rms, self.thresh_coeffs)
+
+
+def calculate_threshold(corr, noise_rms, thresh_coeffs):
+    """Calculate detector threshold given the formula's coefficients."""
+    thresh_const, thresh_snr, thresh_stddev = thresh_coeffs
+    stddev = np.std(corr.mag) if thresh_stddev else 0
+    thresh = (thresh_const +
+              thresh_snr * noise_rms**2 +
+              thresh_stddev * stddev**2)
+    return np.sqrt(thresh)
 
 
 def get_peak(corr, window):
