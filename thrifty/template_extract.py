@@ -38,7 +38,7 @@ def best_detection(detections, max_offset):
     best_result = None
     best_fft = None
 
-    for detected, result, fft, _, _ in detections:
+    for detected, result, fft, _ in detections:
         if detected and abs(result.corr_info.offset) <= max_offset:
             if (best_result is None or
                     result.corr_info.energy > best_result.corr_info.energy):

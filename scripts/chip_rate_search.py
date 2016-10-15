@@ -75,7 +75,7 @@ def _plot(fft, chip_rate, bit_length, code_index, sample_rate):
     start = corr_info.sample
     plt.plot(np.abs(signal[start:start+len(template)]))
     scaled_template = (template + 1) / 2 * np.max(np.abs(signal)) * 0.9
-    plt.plot(np.arange(len(template))-corr_info.offset, scaled_template)
+    plt.plot(np.arange(len(template))+corr_info.offset, scaled_template)
     plt.savefig('chip_rate_search.pdf', format='pdf')
     plt.show()
 
@@ -116,8 +116,7 @@ def _main():
                                window=None,
                                block_len=len(block),
                                carrier_len=carrier_len)
-    fft = np.fft.fft(block)
-    shifted_fft, _ = sync(fft)
+    shifted_fft, _ = sync(block)
     assert shifted_fft is not None
 
     best = search(fft=shifted_fft,

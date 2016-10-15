@@ -54,11 +54,12 @@ class ForcibleDetector(object):
     def __call__(self, timestamp, block_idx, block):
         detected, result, shifted_fft, corr = self.detector.detect(
             timestamp, block_idx, block)
+        synced = shifted_fft.ifft if shifted_fft is not None else None
 
         return DetectorResult(detected,
                               result,
                               block,
-                              shifted_fft.ifft,
+                              synced,
                               corr)
 
 
@@ -146,7 +147,7 @@ class Plotter(object):
 
     def _scaled_ook_template(self, signal):
         ook_template = self.template - np.min(self.template)
-        ook_template *= signal.rms / Signal(ook_template).rms
+        ook_template = ook_template * signal.rms / Signal(ook_template).rms
         return ook_template
 
     def plot_template_overlay(self, ax, zoom='no',
@@ -296,11 +297,11 @@ class Plotter(object):
                      ' (window)' if zoom_to_window else '')
 
     def _plot_carrier_interpolation(self, ax, indices, offset,
-                                    peak_mag, **args):
+                                    peak_mag, **kwargs):
         dirichlet = carrier_sync.dirichlet_kernel(indices,
                                                   self.settings.block_len,
                                                   self.settings.carrier_len)
-        ax.plot(indices + offset, np.abs(dirichlet) * peak_mag)
+        ax.plot(indices + offset, np.abs(dirichlet) * peak_mag, **kwargs)
 
     def plot_carrier_peak_unsynced(self, ax, length=12):
         """Plot the carrier peak and the interpolation function."""
@@ -315,7 +316,8 @@ class Plotter(object):
         # TODO: plot noise and threshold
 
         amplitude, offset = self.carrier_interpolator(fft_mag, peak_idx)
-        self._plot_carrier_interpolation(ax, indices, offset, amplitude,
+        subindices = np.arange(-offset, len(fft_mag)-offset, 0.1) - peak_idx
+        self._plot_carrier_interpolation(ax, subindices, offset, amplitude,
                                          label='Interpolation')
         ax.axvline(offset, linestyle='--')
 
@@ -336,6 +338,7 @@ class Plotter(object):
 
         peak_mag = fft_mag[0]
         self._plot_carrier_interpolation(ax, indices, 0, peak_mag,
+                                         marker='.',
                                          label='Interpolation')
 
         ax.set_xlabel('Offset relative to peak (samples)')
@@ -380,11 +383,8 @@ class Plotter(object):
 
     def _generate_autocorr(self, indices, shift=0):
         template = self.template
-        autocorr = []
-        for index in indices:
-            x = abs(index)
-            right = -x if x != 0 else None
-            autocorr.append(np.sum(template[x:] * template[:right]))
+        autocorr = [np.sum(template[i:] * template[:len(template)-i])
+                    for i in np.abs(indices)]
         autocorr = np.array(autocorr)
         if shift != 0:
             autocorr = np.real(_time_shift(autocorr, shift))
@@ -701,6 +701,9 @@ def _main():
     parser.add_argument('--export', type=str, nargs='?', const='plot',
                         help="export plots to .PDF files "
                              "with the given prefix")
+    parser.add_argument('--save', type=str, nargs='?', const='signals',
+                        help="save detection signals to .npz"
+                             "files with the given prefix")
 
     setting_keys = ['sample_rate', 'block_size', 'block_history',
                     'carrier_window', 'carrier_threshold',
@@ -733,7 +736,7 @@ def _main():
     for timestamp, block_idx, block in blocks:
         if not block_in_range(block_idx, args.blocks):
             continue
-        print("Generating plotter for block #{}".format(block_idx))
+        print("Checking block #{}".format(block_idx))
         detection = detector(timestamp, block_idx, block)
         if detection.detected:
             detections.append(detection)
@@ -741,6 +744,20 @@ def _main():
                 break
         else:
             print("Skipping block #{}".format(block_idx))
+
+    if args.save:
+        for detection in detections:
+            npz = "{}_{}.npz".format(args.save,
+                                     detection.result.block)
+            carrier_info = dict(detection.result.carrier_info._asdict())
+            corr_info = dict(detection.result.corr_info._asdict())
+            np.savez(npz,
+                     unsynced=detection.unsynced,
+                     synced=detection.synced,
+                     corr=detection.corr,
+                     template=settings.template,
+                     carrier_info=carrier_info,
+                     corr_info=corr_info)
 
     if args.export:
         for detection in detections:
@@ -755,7 +772,8 @@ def _main():
                 _plot(fig, plotter, cmd)
                 fig.set_tight_layout(True)
                 fig.savefig(filename)
-    else:
+
+    if not args.save and not args.export:
         app = qt.QApplication(sys.argv)
         ui = DetectionViewer(detections, cmds, settings, config.sample_rate)
         ui.show()
