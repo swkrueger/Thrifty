@@ -30,7 +30,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
 # the version number
 set (FASTCARD_VERSION_MAJOR 0)
-set (FASTCARD_VERSION_MINOR 4)
+set (FASTCARD_VERSION_MINOR 10)
 
 # use C99
 add_definitions(-std=c99)
@@ -43,7 +43,7 @@ endif()
 
 # tune build
 option (TUNE_BUILD 
-        "Tune build to work on this specific PC without support for earlier CPUs in the architecture family." ON) 
+        "Tune build to work on this specific PC without support for earlier CPUs in the architecture family." OFF) 
 if (TUNE_BUILD)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -mtune=native")
 endif (TUNE_BUILD)
@@ -118,8 +118,14 @@ configure_file (
 # configuration.h
 include_directories("${PROJECT_BINARY_DIR}")
 
-add_executable(fastcard fastcard.c)
+add_library(fastcard cardet.c fft.c rawconv.c reader.c raw_reader.c rtlsdr_reader.c)
+
+add_executable(fastcard-bin fastcard.c)
 target_link_libraries (fastcard ${EXTRA_LIBS})
+target_link_libraries (fastcard-bin fastcard)
+
+SET_TARGET_PROPERTIES(fastcard-bin
+  PROPERTIES OUTPUT_NAME fastcard)
 
 # add install targets
 install (TARGETS fastcard DESTINATION bin)
