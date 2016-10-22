@@ -1,3 +1,5 @@
+// Common interface for all readers
+
 #ifndef READER_H
 #define READER_H
 

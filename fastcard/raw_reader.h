@@ -1,3 +1,5 @@
+// Read raw binary samples from a file
+
 #ifndef RAW_READER_H
 #define RAW_READER_H
 

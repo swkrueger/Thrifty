@@ -1,3 +1,5 @@
+// Read data from a .card file
+
 #ifndef CARD_READER_H
 #define CARD_READER_H
 

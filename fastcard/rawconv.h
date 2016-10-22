@@ -1,3 +1,5 @@
+// Convert raw 8-bit I/Q samples from an RTL-SDR to an array of complex values.
+
 #ifndef RAWCONV_H
 #define RAWCONV_H
 

@@ -1,4 +1,4 @@
-// Cardet: Carrier Detector
+// Perform carrier detection
 
 #ifndef CARDET_H
 #define CARDET_H

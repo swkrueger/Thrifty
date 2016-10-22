@@ -1,3 +1,5 @@
+// Read from RTL-SDR by means of librtlsdr
+
 #ifndef RTLSDR_READER_H
 #define RTLSDR_READER_H
 

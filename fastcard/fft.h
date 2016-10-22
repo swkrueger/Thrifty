@@ -1,3 +1,8 @@
+// Common interface for calculating FFT using different backends.
+//
+// Only FFTW is currently supported as backend, but GPU-FFT will be (re-)added
+// in the future if necessary.
+
 #ifndef FFT_H
 #define FFT_H
 
@@ -10,7 +15,6 @@ extern "C"
 #include <complex.h>
 #include <fftw3.h>
 #include "configuration.h"
-// TODO: re-add support for GPU-FFT
 
 #ifndef USE_FFTW
 #error Only FFTW is currently supported.

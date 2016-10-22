@@ -1,9 +1,7 @@
-/**
- * Char FIFO circular buffer
- *
- * A circular buffer for which the producer and consumer can operate on
- * separate pthread threads.
- **/
+// Char FIFO circular buffer
+//
+// A circular buffer for which the producer and consumer can operate on
+// separate pthread threads.
 
 #ifndef CIRCBUF_H
 #define CIRCBUF_H
