@@ -15,27 +15,7 @@ extern "C"
 
 #include <argp.h>
 
-typedef struct {
-    size_t block_len;
-    size_t history_len;
-    
-    float threshold_const;
-    float threshold_snr;
-    int carrier_freq_min;
-    int carrier_freq_max;
-    unsigned skip;
-    
-    char *input_file;
-    char *output_file;
-    bool input_card;
-
-    uint32_t sdr_freq;
-    uint32_t sdr_sample_rate;
-    int sdr_gain;
-    uint32_t sdr_dev_index;
-
-    bool silent;
-} fargs_t;
+#include "fargs_type.h"
 
 extern const struct argp_option fargs_options[];
 fargs_t* fargs_new();

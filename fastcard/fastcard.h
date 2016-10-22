@@ -19,7 +19,7 @@ extern "C"
 #include "reader.h"
 #include "fft.h"
 
-#include "fargs.h"
+#include "fargs_type.h"
 
 typedef struct {
     block_t* block;
