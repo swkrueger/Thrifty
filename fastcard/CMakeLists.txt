@@ -99,13 +99,11 @@ endif (USE_VOLK)
 option (USE_LIBRTLSDR
     "Use librtlsdr to read directly from SDR" ON)
 if (USE_LIBRTLSDR)
-    add_library(circbuf circbuf.c)
-
     find_package(Threads)
     find_package(LibRTLSDR)
     include_directories(${LIBRTLSDR_INCLUDE_DIRS})
 
-    set (EXTRA_LIBS ${EXTRA_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBRTLSDR_LIBRARIES} circbuf)
+    set (EXTRA_LIBS ${EXTRA_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${LIBRTLSDR_LIBRARIES})
 endif (USE_LIBRTLSDR)
 
 # configure a header file to pass some of the CMake settings to the source code
@@ -118,7 +116,16 @@ configure_file (
 # configuration.h
 include_directories("${PROJECT_BINARY_DIR}")
 
-add_library(fastcard cardet.c fft.c rawconv.c reader.c raw_reader.c card_reader.c rtlsdr_reader.c)
+add_library(fastcard
+            cardet.c
+            fft.c
+            rawconv.c
+            parse.c
+            reader.c
+            raw_reader.c
+            card_reader.c
+            rtlsdr_reader.c
+            circbuf.c)
 
 add_executable(fastcard-bin fastcard.c)
 target_link_libraries (fastcard ${EXTRA_LIBS})

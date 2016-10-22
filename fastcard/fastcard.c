@@ -35,6 +35,7 @@
 #include "cardet.h"
 #include "rawconv.h"
 #include "lib/base64.h"
+#include "parse.h"
 
 // Settings: default values
 static size_t block_size = 16384;  // 2^14
@@ -129,92 +130,6 @@ void info_out(const char * format, ...) {
     }
 }
 
-// Copied from rtlsdr/src/convenience/convenience.c
-// <copy>
-/* standard suffixes */
-double atofs(char *s) {
-	char last;
-	int len;
-	double suff = 1.0;
-	len = strlen(s);
-	last = s[len-1];
-	s[len-1] = '\0';
-	switch (last) {
-		case 'g':
-		case 'G':
-			suff *= 1e3;
-		case 'm':
-		case 'M':
-			suff *= 1e3;
-		case 'k':
-		case 'K':
-			suff *= 1e3;
-			suff *= atof(s);
-			s[len-1] = last;
-			return suff;
-	}
-	s[len-1] = last;
-	return atof(s);
-}
-// </copy>
-
-static bool parse_carrier_str(char *arg) {
-    int r = sscanf(arg, "%d-%d", &carrier_freq_min, &carrier_freq_max);
-
-    if (r == 1) {
-        carrier_freq_max = carrier_freq_min;
-    } else if (r != 2) {
-        fprintf(stderr, "Argument '--carrier' contains an invalid value.\n");
-        return false;
-    }
-    
-    return true;
-}
-
-static bool parse_theshold_str(char *arg) {
-    float f;
-    int n;
-    
-    bool got_constant = false;
-    bool got_snr = false;
-
-    threshold_constant = 0;
-    threshold_snr = 0;
-
-    while (sscanf(arg, "%f%n", &f, &n) == 1) {
-        arg += n;
-        switch (*arg) {
-            case 'c':
-                arg += 1;
-            case '\0':
-                if (got_constant) {
-                    fprintf(stderr, "Argument '--threshold' contains more than "
-                                    "one value for constant.\n");
-                    return false;
-                }
-                threshold_constant = f;
-                got_constant = true;
-                break;
-            case 's':
-                if (got_snr) {
-                    fprintf(stderr, "Argument '--threshold' contains more than "
-                                    "one value for SNR.\n");
-                    return false;
-                }
-                threshold_snr = f;
-                arg +=1;
-                got_snr = true;
-                break;
-        }
-    }
-
-    if (*arg != '\0') {
-        fprintf(stderr, "Argument '--threshold' contains an invalid value.\n");
-        return false;
-    }
-
-    return true;
-}
 
 /* Parse a single option. */
 static error_t parse_opt (int key, char *arg, struct argp_state *state) {
@@ -226,10 +141,18 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
         case 'i': input_file = arg; break;
         case 'o': output_file = arg; break;
         case 'w':
-            if (!parse_carrier_str(arg)) argp_usage(state);
+            if (!parse_carrier_str(arg,
+                                   &carrier_freq_min,
+                                   &carrier_freq_max)) {
+                argp_usage(state);
+            }
             break;
         case 't':
-            if (!parse_theshold_str(arg)) argp_usage(state);
+            if (!parse_theshold_str(arg,
+                                    &threshold_constant,
+                                    &threshold_snr)) {
+                argp_usage(state);   
+            }
             break;
         case 'b':
             block_size = strtoul(arg, &endptr, 10);
@@ -247,13 +170,13 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
             silent = true;
             break;
         case 'f':
-            sdr_frequency = (uint32_t)atofs(arg);
+            sdr_frequency = (uint32_t)parse_si_float(arg);
             break;
         case 'g':
             sdr_gain = (int)(atof(arg) * 10); // unit: tenths of a dB
             break;
         case 's':
-            sdr_sample_rate = (uint32_t)atofs(arg);
+            sdr_sample_rate = (uint32_t)parse_si_float(arg);
             break;
         case 'd':
             sdr_dev_index = strtoul(arg, &endptr, 10);
