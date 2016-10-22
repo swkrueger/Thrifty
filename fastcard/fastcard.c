@@ -234,7 +234,7 @@ int parse_args(int argc, char **argv) {
     return 0;
 }
 
-void print_header_info() {
+void print_info_header() {
     info_out("block size: %zu; history length: %zu\n",
              block_size, history_size);
     info_out("carrier bin window: min = %d; max = %d\n",
@@ -251,6 +251,27 @@ void print_header_info() {
     }
 
     fflush(info);
+}
+
+void print_card_header() {
+    if (out != NULL && out != stdout) {
+        fprintf(out,
+                "# arguments: { carrier_bin: '%d-%d', threshold: '%gc+%gs', "
+                "block_size: %zu, history_size: %zu }\n",
+                carrier_freq_min, carrier_freq_max,
+                threshold_constant, threshold_snr,
+                block_size, history_size);
+        if (in == NULL) {
+            fprintf(out, "# tuner: { freq: %u; sample_rate: %u; gain: %02f }\n",
+                    sdr_frequency, sdr_sample_rate, sdr_gain/10.0);
+        }
+        fprintf(out, "# tool: 'fastcard " VERSION_STRING "'\n");
+
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        fprintf(out, "# start_time: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
+        fflush(out);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -443,7 +464,8 @@ int main(int argc, char **argv) {
         goto free;
     }
 
-    print_header_info();
+    print_info_header();
+    print_card_header();
 
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
