@@ -29,6 +29,7 @@
 #include "configuration.h"
 #include "reader.h"
 #include "raw_reader.h"
+#include "card_reader.h"
 #include "rtlsdr_reader.h"
 #include "fft.h"
 #include "cardet.h"
@@ -47,6 +48,7 @@ static unsigned blocks_skip = 1;
 
 static char *input_file = "";
 static char *output_file = NULL;
+static bool input_card = false;
 
 static FILE* in = NULL;
 static FILE* out = NULL;   // default: don't output anything
@@ -61,15 +63,19 @@ static uint32_t sdr_dev_index = 0;
 
 /* Parse arguments */
 const char *argp_program_version = "fastcard " VERSION_STRING;
-static char doc[] = "FastCarD: Fast Carrier Detection\n\n"
+static const char doc[] = "FastCarD: Fast Carrier Detection\n\n"
     "Takes a stream of raw 8-bit IQ samples from a RTL-SDR, splits it into "
     "fixed-sized blocks, and, if a carrier is detected in a block, outputs the "
     "block ID, timestamp and the block's raw samples encoded in base64.";
 
-static struct argp_option options[] = {
+#define ARGP_KEY_CARD 0x01
+
+static const struct argp_option options[] = {
     // I/O
     {0, 0, 0, 0, "I/O settings:", 1},
     // TODO: --card (input is a card file)
+    {"card", ARGP_KEY_CARD, 0, 0,
+        "Input is a .card file instead of binary data", 1},
     {"input",  'i', "<FILE>", 0,
         "Input file with samples "
         "('-' for stdin, 'rtlsdr' for librtlsdr)\n[default: stdin]",
@@ -215,6 +221,8 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
     char* endptr;
 
     switch (key) {
+        case ARGP_KEY_CARD:
+            input_card = true;
         case 'i': input_file = arg; break;
         case 'o': output_file = arg; break;
         case 'w':
@@ -281,7 +289,7 @@ int parse_args(int argc, char **argv) {
         }
     }
 
-    FILE* out = NULL;
+    out = NULL;
     if (output_file != NULL) {
         if (strlen(output_file) == 0 || strcmp(output_file, "-") == 0) {
             out = stdout;
@@ -367,7 +375,13 @@ int fastcard_init() {
         reader = rtlsdr_reader_new(reader_settings, &sdr_settings);
         sdr_gain = sdr_settings.gain;  // get exact gain
     } else {
-        reader = raw_reader_new(reader_settings, in);
+        if (input_card) {
+            reader = card_reader_new(reader_settings, in);
+            // don't skip blocks when reading from .card file
+            blocks_skip = 0;
+        } else {
+            reader = raw_reader_new(reader_settings, in);
+        }
     }
     samples_to_fft = fft_new(block_size, true);
     samples = fft_get_input(samples_to_fft);
@@ -417,18 +431,28 @@ int fastcard_process() {
 
     keep_running = true;
 
+    unsigned cnt = 0;
+    unsigned skip = blocks_skip;
+
     while (keep_running) {
         ret = reader_next(reader);
 
         if (ret != 0) {
+            if (ret != -1) {
+                fprintf(stderr, "reader_next() failed\n");
+            }
             break;
         }
 
-        if (block->index < 0) {
+        if (skip > 0) {
+            --skip;
+
+            if (skip == 0) {
+                info_out("done\n\n");
+                fflush(info);
+            }
+
             continue;
-        } else if (block->index == 0 && blocks_skip > 0) {
-            info_out("done\n\n");
-            fflush(info);
         }
 
         rawconv_to_complex(&rawconv, samples, block->raw_samples, block_size);
@@ -455,9 +479,12 @@ int fastcard_process() {
             }
         }
 
+        ++cnt;
     }
 
-    info_out("\nRead %ld blocks.\n", (block->index >= 0 ? block->index+1 : 0));
+    // TODO: use separate counter!
+
+    info_out("\nRead %ld blocks.\n", cnt);
 
     reader_stop(reader);
     if (in == NULL) {

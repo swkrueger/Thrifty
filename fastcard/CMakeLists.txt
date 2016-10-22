@@ -118,7 +118,7 @@ configure_file (
 # configuration.h
 include_directories("${PROJECT_BINARY_DIR}")
 
-add_library(fastcard cardet.c fft.c rawconv.c reader.c raw_reader.c rtlsdr_reader.c)
+add_library(fastcard cardet.c fft.c rawconv.c reader.c raw_reader.c card_reader.c rtlsdr_reader.c)
 
 add_executable(fastcard-bin fastcard.c)
 target_link_libraries (fastcard ${EXTRA_LIBS})

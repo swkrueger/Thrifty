@@ -41,7 +41,9 @@ block_t * reader_block_new(size_t len) {
     if (block == NULL) {
         return NULL;
     }
-    block->raw_samples = malloc(len * sizeof(uint16_t));
+    // allocate a few extra bytes just in case a reader terminates the string
+    // or base64 decoding writes extra bytes.
+    block->raw_samples = malloc(len * sizeof(uint16_t) + 5);
     if (block->raw_samples == NULL) {
         free(block);
         return NULL;
