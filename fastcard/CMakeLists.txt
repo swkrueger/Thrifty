@@ -116,7 +116,7 @@ configure_file (
 # configuration.h
 include_directories("${PROJECT_BINARY_DIR}")
 
-add_library(fastcard
+add_library(fastcard_modules
             cardet.c
             fft.c
             rawconv.c
@@ -127,8 +127,13 @@ add_library(fastcard
             rtlsdr_reader.c
             circbuf.c)
 
-add_executable(fastcard-bin fastcard.c)
-target_link_libraries (fastcard ${EXTRA_LIBS})
+add_library(fastcard
+            fastcard.c
+            fargs.c)
+
+add_executable(fastcard-bin fastcard_cli.c)
+target_link_libraries (fastcard_modules ${EXTRA_LIBS})
+target_link_libraries (fastcard fastcard_modules)
 target_link_libraries (fastcard-bin fastcard)
 
 SET_TARGET_PROPERTIES(fastcard-bin

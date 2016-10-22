@@ -12,6 +12,9 @@ typedef struct {
 } card_reader_t;
 
 void card_reader_free(card_reader_t* state) {
+    if (state != NULL && state->base64 != NULL) {
+        free(state->base64);
+    }
     free(state);  // will handle state == NULL
 }
 

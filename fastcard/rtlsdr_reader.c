@@ -80,7 +80,6 @@ void rtlsdr_reader_free(rtlsdr_reader_t* state) {
         circbuf_free(state->circbuf);
     }
     free(state);
-    fprintf(stderr, "We are free!\n");
 }
 
 int rtlsdr_reader_next(rtlsdr_reader_t* state) {
