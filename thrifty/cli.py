@@ -27,7 +27,6 @@ Valid commands are:
     detect            Detect presence of positioning signals and estimate SoA
     identify          Identify transmitter IDs and filter duplicate detections
     match             Match detections from multiple receivers
-    clock_sync        Build clock sync model from beacon transmissions
     tdoa              Estimate TDOA by synchronising with beacon transmissions
     pos               Estimate position from TDOA estimates
 
@@ -35,6 +34,7 @@ Valid commands are:
     scope             Live time-domain and frequency-domain plots with triggers
     analyze_toads     Calculate statistics on data in a .toads file
     analyze_detect    Like 'detect', but plot signals for analysis
+    analyze_beacon    Analyze the difference in SOA of a beacon between two RXs
 
     ~ Utilities ~
     template_generate Generate a new (ideal) template
@@ -48,11 +48,11 @@ MODULES = {
     'detect': 'thrifty.detect',
     'identify': 'thrifty.identify',
     'match': 'thrifty.matchmaker',
-    'clock_sync': 'thrifty.clock_sync',
     'tdoa': 'thrifty.tdoa_est',
     'pos': 'thrifty.pos_est',
     'analyze_toads': 'thrifty.toads_analysis',
     'analyze_detect': 'thrifty.detect_analysis',
+    'analyze_beacon': 'thrifty.beacon_analysis',
     'template_generate': 'thrifty.template_generate',
     'template_extract': 'thrifty.template_extract',
     'scope': 'thrifty.scope',
