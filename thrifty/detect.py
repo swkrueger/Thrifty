@@ -158,11 +158,12 @@ class SummaryLineFormatter(object):
         return info
 
 
-def detector_cli(detector_class):
+def detector_cli(detector_class, parser=None, extra_args=None):
     # pylint: disable=too-many-locals
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter)
+    if parser is None:
+        parser = argparse.ArgumentParser(
+            description=__doc__,
+            formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument('input',
                         type=argparse.FileType('rb'), default='-',
@@ -184,6 +185,10 @@ def detector_cli(detector_class):
                     'corr_threshold', 'template', 'rxid']
     config, args = load_args(parser, setting_keys)
 
+    kwargs = {}
+    if extra_args is not None:
+        kwargs = {arg: args[arg] for arg in extra_args}
+
     output_file = args.output if args.append is None else args.append
     info_out = sys.stderr if output_file == sys.stdout else sys.stdout
     bin_freq = config.sample_rate / config.block_size
@@ -204,7 +209,7 @@ def detector_cli(detector_class):
                                 carrier_window=window,
                                 template=template,
                                 corr_thresh=config.corr_threshold)
-    detections = detector_class(settings, blocks, rxid=config.rxid)
+    detections = detector_class(settings, blocks, rxid=config.rxid, **kwargs)
     summary_liner = SummaryLineFormatter(config.sample_rate,
                                          config.block_size,
                                          add_dt=True)

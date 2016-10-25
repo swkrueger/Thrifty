@@ -86,7 +86,7 @@ def build_model_poly(detection_pairs, beacon_sdoa, nominal_sample_rate, deg=2):
     soa0 = np.array([d[0].soa for d in detection_pairs])
     soa1 = np.array([d[1].soa for d in detection_pairs])
     soa1at0 = soa1 + np.array(beacon_sdoa)
-    coef = np.polyfit(soa1at0, soa0, 2)
+    coef = np.polyfit(soa1at0, soa0, deg)
     fit = np.poly1d(coef)
     # residuals = soa0 - fit(soa1at0)
     # print(np.mean(residuals))
@@ -148,7 +148,10 @@ def _dist(vector1, vector2):
 
 
 def estimate_tdoas(detections, matches, window_size, beacon_pos, rx_pos,
-                   sample_rate, model_builder=build_model):
+                   sample_rate, model_builder=build_model, model_params=None):
+    if model_params is None:
+        model_params = {}
+
     beacon_matches = [m for m in matches
                       if detections[m[0]].txid in beacon_pos]
     mobile_matches = [(i, m) for i, m in enumerate(matches)
@@ -178,7 +181,10 @@ def estimate_tdoas(detections, matches, window_size, beacon_pos, rx_pos,
                            for b in beacon_pairs]
             beacon_sdoa = np.array(beacon_tdoa) * sample_rate
 
-            model = build_model(beacon_pairs, beacon_sdoa, sample_rate)
+            model = model_builder(beacon_pairs,
+                                  beacon_sdoa,
+                                  sample_rate,
+                                  **model_params)
             if model is None:
                 failures.append((det0_id, det1_id))
                 continue
@@ -227,6 +233,16 @@ def load_tdoa_matrix(fname):
     return data
 
 
+def groups_to_matrix(groups):
+    data = []
+    for group in groups:
+        group_info = (group.group_id, group.timestamp, group.tx)
+        for tdoa in group.tdoas:
+            row = group_info + tdoa.tolist()
+            data.append(row)
+    return np.array(data, dtype=MATRIX_DTYPE)
+
+
 def load_tdoa_groups(fname):
     matrix = load_tdoa_matrix(fname)
     tdoa_groups = collections.OrderedDict()
@@ -261,7 +277,7 @@ def _main():
                         help="toads data (\"-\" streams from stdin)")
     parser.add_argument('matches', nargs='?',
                         type=argparse.FileType('r'), default='data.match',
-                        help="toads data (\"-\" streams from stdin)")
+                        help="match data (\"-\" streams from stdin)")
     parser.add_argument('-o', '--output', dest='output',
                         type=argparse.FileType('w'), default='data.tdoa',
                         help="output file (\'-\' for stdout)")
@@ -274,7 +290,7 @@ def _main():
                         help="path to config file that contains the "
                              "coordinates of the beacon transmitters")
     parser.add_argument('-w', '--window-size', dest='window_size',
-                        type=float, default=2,
+                        type=float, default=8,
                         help="maximum difference in timestamp between a beacon"
                              " transmission and a mobile unit transmission for"
                              " the beacon transmission to be eligible to be"
