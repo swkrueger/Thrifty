@@ -18,6 +18,7 @@ import itertools
 import numpy as np
 
 from thrifty import matchmaker
+from thrifty import stat_tools
 from thrifty import toads_data
 from thrifty.settings import parse_kvconfig
 
@@ -60,6 +61,13 @@ def make_detection_extractor(detections, matches):
         left = bisect_left(timestamps[pair], timestamp_start)
         right = bisect_right(timestamps[pair], timestamp_stop)
         detection_pairs = rxpair_detections[pair][left:right]
+
+        if len(detection_pairs) > 1:
+            sdoa = np.array([d[0].soa - d[1].soa for d in detection_pairs])
+            is_outlier = stat_tools.is_outlier(sdoa)
+            detection_pairs = list(itertools.compress(detection_pairs,
+                                                      ~is_outlier))
+
         return detection_pairs
 
     return extract
