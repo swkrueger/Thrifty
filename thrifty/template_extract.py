@@ -30,7 +30,7 @@ from thrifty.block_data import card_reader
 from thrifty.setting_parsers import normalize_freq_range
 
 
-MAX_OFFSET = 0.1
+MAX_OFFSET = 0.2
 
 
 def best_detection(detections, max_offset):
@@ -63,9 +63,10 @@ def plot(signal, template, offset):
     import matplotlib.pyplot as plt
 
     xdata = np.arange(len(template))
-    plt.plot(xdata, signal, '.-')
-    plt.plot(xdata - offset, template, '.-')
+    plt.plot(xdata, signal, '.-', label='New')
+    plt.plot(xdata - offset, template, '.-', label='Base')
     plt.savefig('extract.pdf', format='pdf')
+    plt.legend()
     plt.show()
 
 

@@ -90,6 +90,8 @@ class DetectionResult(object):
 def _load_toads(stream, with_rxid=True, with_txid=True):
     """Load list of TOA detection serializations from a file."""
     toads = []
+    if isinstance(stream, basestring):
+        stream = open(stream, 'r')
     for line in stream:
         if len(line) == 0 or line[0] == '#':
             continue

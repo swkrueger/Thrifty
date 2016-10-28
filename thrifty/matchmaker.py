@@ -10,7 +10,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import argparse
-import logging
 
 from thrifty import toads_data
 
@@ -83,6 +82,8 @@ def match_toads(toads, window, min_match=2):
 def load_matches(file_):
     """Load match data from .match file."""
     matches = []
+    if isinstance(file_, basestring):
+        file_ = open(file_, 'r')
     for line in file_:
         if len(line) == 0 or line[0] == '#':
             continue

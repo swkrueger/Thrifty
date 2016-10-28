@@ -35,6 +35,7 @@ Valid commands are:
     analyze_toads     Calculate statistics on data in a .toads file
     analyze_detect    Like 'detect', but plot signals for analysis
     analyze_beacon    Analyze the difference in SOA of a beacon between two RXs
+    analyze_tdoa      Calculate stats from slices of the TDOA data
 
     ~ Utilities ~
     template_generate Generate a new (ideal) template
@@ -53,6 +54,7 @@ MODULES = {
     'analyze_toads': 'thrifty.toads_analysis',
     'analyze_detect': 'thrifty.detect_analysis',
     'analyze_beacon': 'thrifty.beacon_analysis',
+    'analyze_tdoa': 'thrifty.tdoa_analysis',
     'template_generate': 'thrifty.template_generate',
     'template_extract': 'thrifty.template_extract',
     'scope': 'thrifty.scope',
@@ -70,7 +72,7 @@ def _main():
 
     command = sys.argv.pop(1)
 
-    if command == 'help':
+    if command == 'help' or command == '--help':
         if len(sys.argv) == 2:
             command = sys.argv.pop(1)
             sys.argv.append('--help')
