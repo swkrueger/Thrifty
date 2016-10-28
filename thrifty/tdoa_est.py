@@ -105,6 +105,47 @@ def build_model_poly(detection_pairs, beacon_sdoa, nominal_sample_rate, deg=2):
     return evaluate
 
 
+def build_model_weighted_poly(detection_pairs, beacon_sdoa,
+                              nominal_sample_rate, deg=2):
+    if len(detection_pairs) < deg + 1:
+        # not enough beacon transmissions
+        return None
+
+    soa0 = np.array([d[0].soa for d in detection_pairs])
+    soa1 = np.array([d[1].soa for d in detection_pairs])
+    soa1at0 = soa1 + np.array(beacon_sdoa)
+
+    def evaluate(det0, det1):
+        # # Option 1: weight on min energy
+        # weights = [min(d[0].carrier_info.energy,
+        #                d[1].carrier_info.energy)
+        #            for d in detection_pairs]
+        # weights = np.array(weights)
+        # weights = weights / np.max(weights)
+
+        # Option 2: weight on mean energy
+        # weights = [np.sqrt(d[0].carrier_info.energy**2 +
+        #                    d[1].carrier_info.energy**2)
+        #            for d in detection_pairs]
+        # weights = np.array(weights)
+        # weights = weights / np.max(weights)
+
+        # Option 3: weight on "distance" from mobile unit detection
+        weights = np.sqrt(1. / (np.abs(soa0 - det0.soa)))
+        weights = weights / np.max(weights)
+        weights = np.sqrt(weights)
+        weights = (weights + 2) / 3
+
+        # Option 4: hybrid
+
+        coef = np.polyfit(soa1at0, soa0, deg, w=weights)
+        fit = np.poly1d(coef)
+
+        return (det0.soa - fit(det1.soa)) / nominal_sample_rate
+
+    return evaluate
+
+
 def find_nearest_value(list_, value):
     idx = bisect_left(list_, value)
     if idx > 0 and (idx == len(list_) or
@@ -129,25 +170,60 @@ def build_model_nearest(detection_pairs, beacon_sdoa, nominal_sample_rate):
 
     pairs = sorted(detection_pairs,
                    cmp=lambda x, y: x[0].timestamp < y[0].timestamp)
-    timestamps = [p[0] for p in pairs]
+    timestamps = [p[0].timestamp for p in pairs]
 
     def evaluate(det0, det1):
         idx = find_nearest_value(timestamps, det0.timestamp)
+        # print(idx, timestamps, det0.timestamp)
         dsoa0 = det0.soa - pairs[idx][0].soa
         dsoa1 = det1.soa - pairs[idx][1].soa
         return (dsoa0 - dsoa1 + beacon_sdoa[idx]) / nominal_sample_rate
+        # FIXME: ^ + of - beacon_sdoa?
+
+    return evaluate
+
+
+def build_model_linear(detection_pairs, beacon_sdoa, nominal_sample_rate):
+    if len(detection_pairs) < 2:
+        # not enough beacon transmissions
+        return None
+
+    pairs = sorted(detection_pairs,
+                   cmp=lambda x, y: x[0].timestamp < y[0].timestamp)
+    timestamps = [p[0].timestamp for p in pairs]
+
+    def evaluate(det0, det1):
+        high_idx = bisect_left(timestamps, det0.timestamp)
+        if high_idx == len(timestamps):
+            high_idx -= 1
+
+        low_idx = high_idx - 1
+
+        # find the nearest beacon transmission from the same beacon
+        while (low_idx >= 0 and
+                pairs[low_idx][0].txid != pairs[high_idx][0].txid):
+            low_idx -= 1
+
+        if low_idx < 0:
+            return None
+
+        beacon0 = pairs[low_idx]
+        beacon1 = pairs[high_idx]
+
+        weight = ((det0.soa - beacon0[0].soa) /
+                  (beacon1[0].soa - beacon0[0].soa))
+        tau = ((beacon0[1].soa * (1-weight) + beacon1[1].soa * weight) -
+               det1.soa)
+        # FIXME: ^ *-1?
+
+        return (tau + beacon_sdoa[high_idx]) / nominal_sample_rate
+        # FIXME: ^ + of - beacon_sdoa?
 
     return evaluate
 
 
 # default model
-build_model = build_model_poly
-
-# TODO: More models:
-#  _nearest
-#  _linear
-#  _quad (_poly)
-#  _weighted_quad (weighted on SNR and time from mobile unit TX)
+default_model = build_model_poly
 
 
 def _dist(vector1, vector2):
@@ -155,8 +231,9 @@ def _dist(vector1, vector2):
     return np.sqrt(np.sum(diff**2))
 
 
-def estimate_tdoas(detections, matches, window_size, beacon_pos, rx_pos,
-                   sample_rate, model_builder=build_model, model_params=None):
+def estimate_tdoas(detections, matches, window_size,
+                   beacon_pos, rx_pos, sample_rate,
+                   model_builder=default_model, model_params=None):
     if model_params is None:
         model_params = {}
 
@@ -200,7 +277,7 @@ def estimate_tdoas(detections, matches, window_size, beacon_pos, rx_pos,
             tdoa = model(det0, det1)
 
             # Ignore outliers
-            if abs(tdoa) >= MAX_TDOA:
+            if tdoa is None or abs(tdoa) >= MAX_TDOA:
                 failures.append((det0_id, det1_id))
                 continue
 
@@ -227,6 +304,8 @@ def estimate_tdoas(detections, matches, window_size, beacon_pos, rx_pos,
 
 
 def save_tdoa_groups(output, tdoa_groups):
+    if isinstance(output, basestring):
+        output = open(output, 'w')
     for group in tdoa_groups:
         for tdoa in group.tdoas:
             tdoa = tdoa.copy()
