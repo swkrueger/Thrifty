@@ -1,0 +1,9 @@
+[Unit]
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/ntp-after-online.sh
+
+[Install]
+WantedBy=multi-user.target
