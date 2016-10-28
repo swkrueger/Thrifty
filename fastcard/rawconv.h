@@ -8,19 +8,20 @@ extern "C"
 {
 #endif
 
-#include <complex.h>
 #include <stdint.h>
 #include <stdlib.h>
+
+#include "fft.h"  // for fcomplex
 
 #define RAWCONV_ZERO 127
 
 typedef struct {
-    complex float lut[0x10000];
+    fcomplex lut[0x10000];
 } rawconv_t;
 
 void rawconv_init(rawconv_t *rawconv);
 void rawconv_to_complex(rawconv_t *rawconv,
-                        complex float* output,
+                        fcomplex* output,
                         uint16_t* input,
                         size_t len);
 

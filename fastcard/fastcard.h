@@ -8,7 +8,6 @@ extern "C"
 {
 #endif
 
-#include <complex.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -23,8 +22,8 @@ extern "C"
 
 typedef struct {
     block_t* block;
-    complex float* samples;  // owned by samples_to_fft
-    complex float* fft;      // owned by samples_to_fft
+    fcomplex* samples;  // owned by samples_to_fft
+    fcomplex* fft;      // owned by samples_to_fft
     float* fft_power;
     bool detected;
     cardet_detection_t detection;

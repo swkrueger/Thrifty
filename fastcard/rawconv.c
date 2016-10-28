@@ -3,7 +3,7 @@
 #include "rawconv.h"
 
 void rawconv_init(rawconv_t *rawconv) {
-    complex float *lut = rawconv->lut;
+    fcomplex *lut = rawconv->lut;
     // generate lookup table for raw-to-complex conversion
     for (size_t i = 0; i <= 0xffff; ++i) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -19,7 +19,7 @@ void rawconv_init(rawconv_t *rawconv) {
 }
 
 void rawconv_to_complex(rawconv_t *rawconv,
-                        complex float* output,
+                        fcomplex* output,
                         uint16_t* input,
                         size_t len) {
     for (size_t i = 0; i < len; ++i) {
