@@ -31,7 +31,7 @@ DEFINITIONS = {
     'chip_rate': Definition(
         ['--chip-rate', '-p'],
         setting_parsers.metric_float,
-        '0.9444M',
+        '0.999707M',
         "Rate at which the code is being transmitted (bps)"
     ),
 
@@ -67,7 +67,7 @@ DEFINITIONS = {
     'block_history': Definition(
         ['--history', '-y'],
         int,
-        '5210',
+        '4920',
         "The number of samples at the end of a block that should be repeated "
         "at the start of the next block (samples)"
     ),
@@ -82,14 +82,14 @@ DEFINITIONS = {
     'carrier_threshold': Definition(
         ['--carrier-threshold', '-t'],
         setting_parsers.threshold,
-        '100 + 2*snr',
+        '15*snr',
         "Threshold formula for carrier detector"
     ),
 
     'corr_threshold': Definition(
         ['--corr-threshold', '-u'],
         setting_parsers.threshold,
-        '10*snr',
+        '15*snr',
         "Threshold formula for correlation peak detector"
     ),
 
