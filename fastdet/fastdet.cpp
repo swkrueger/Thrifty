@@ -325,7 +325,10 @@ double CorrDetector::interpolate_gaussian(float* peak_power) {
 
 float CorrDetector::estimate_noise(size_t peak_power, float signal_energy) {
     float signal_corr_energy = signal_energy * template_energy_;
-    float noise_power = (signal_corr_energy - 2*peak_power) / len_;
+    float noise_power = (signal_corr_energy - peak_power) / len_;
+    if (noise_power < 0) {
+        noise_power = 0;
+    }
     return noise_power;
 }
 
