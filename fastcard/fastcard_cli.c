@@ -17,6 +17,7 @@
 
 #include <signal.h>
 #include <argp.h>
+#include <inttypes.h>
 
 #include "configuration.h"
 #include "lib/base64.h"
@@ -170,7 +171,7 @@ int main(int argc, char **argv) {
             const cardet_detection_t* det = &data->detection;
             if (info != NULL) {
                 fprintf(info,
-                        "block #%ld: mag[%d] = %.1f "
+                        "block #%" PRId64 ": mag[%u] = %.1f "
                         "(thresh = %.1f, noise = %.1f)\n",
                          data->block->index,
                          det->argmax, sqrt(det->max),
@@ -182,7 +183,7 @@ int main(int argc, char **argv) {
                              (const char*) block->raw_samples,
                              args->block_len * 2);
                 fprintf(out,
-                        "%ld.%06ld %lu %s\n",
+                        "%ld.%06ld %" PRId64" %s\n",
                         block->timestamp.tv_sec,
                         block->timestamp.tv_usec,
                         block->index,
@@ -193,7 +194,7 @@ int main(int argc, char **argv) {
     }
 
     if (info != NULL) {
-        fprintf(info, "\nRead %d blocks.\n", cnt);
+        fprintf(info, "\nRead %u blocks.\n", cnt);
         fastcard_print_stats(fastcard, info);
     }
 

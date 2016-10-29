@@ -13,6 +13,7 @@
 #include <string>
 #include <sstream>
 #include <memory>
+#include <inttypes.h>
 
 #include <signal.h>
 #include <stdarg.h>
@@ -64,7 +65,7 @@ class CarrierDetector {
     const fastcard_data_t* data_;
 
   public:
-    CarrierDetector(std::unique_ptr<fargs_t> &args);
+    CarrierDetector(fargs_t *args);
     ~CarrierDetector();
     void start();
     bool next();
@@ -73,9 +74,9 @@ class CarrierDetector {
     void print_stats(FILE* out);
 };
 
-CarrierDetector::CarrierDetector(std::unique_ptr<fargs_t> &args) {
+CarrierDetector::CarrierDetector(fargs_t *args) {
     // TODO: copy args
-    fastcard_ = fastcard_new(args.get());
+    fastcard_ = fastcard_new(args);
     if (fastcard_ == NULL) {
         throw FastcardException(-1, "failed to init fastcard");
     }
@@ -497,7 +498,7 @@ static struct argp_option extra_options[] = {
         "This receiver's unique identifier\n[default: -1]", 5}
 };
 
-unique_ptr<fargs_t> args;
+unique_ptr<fargs_t, decltype(free)*> args = {NULL, free};
 std::string output_file;
 std::string card_output_file;
 std::string template_file = "template.tpl";
@@ -568,7 +569,7 @@ int main(int argc, char **argv) {
             info.open((out.file() == stdout) ? stderr : stdout);
         }
 
-        carrier_det.reset(new CarrierDetector(args));
+        carrier_det.reset(new CarrierDetector(args.get()));
         vector<float> template_samples = load_template(template_file);
         CorrDetector corr_detect(template_samples,
                                  args->block_len,
@@ -639,8 +640,8 @@ int main(int argc, char **argv) {
 
             // output toad
             if (out.file() != NULL) {
-                out.printf("%d %ld.%06ld %lu %.8f"
-                           " %d %.12f %f %f %d %f %f %f\n",
+                out.printf("%d %ld.%06ld %" PRId64 " %.8f"
+                           " %u %.12f %f %f %u %f %f %f\n",
                            rxid,
                            carrier.block->timestamp.tv_sec,
                            carrier.block->timestamp.tv_usec,
@@ -661,7 +662,7 @@ int main(int argc, char **argv) {
                 Base64encode(base64.data(),
                              (const char*) carrier.block->raw_samples,
                              args->block_len * 2);
-                card.printf("%ld.%06ld %lu %s\n",
+                card.printf("%ld.%06ld %" PRId64 " %s\n",
                             carrier.block->timestamp.tv_sec,
                             carrier.block->timestamp.tv_usec,
                             carrier.block->index,
@@ -672,7 +673,7 @@ int main(int argc, char **argv) {
                                               carrier.detection.noise);
 
             if (info.file() != NULL) {
-                info.printf("block #%ld: carrier @ %3d %+.1f = "
+                info.printf("block #%" PRId64 ": carrier @ %3u %+.1f = "
                             "%4.0f / %2.0f [>%2.0f] = %2.0f dB",
                             block_idx,
                             carrier.detection.argmax,

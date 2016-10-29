@@ -9,6 +9,7 @@ extern "C"
 #endif
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stddef.h>
 
 typedef struct {
@@ -20,7 +21,7 @@ typedef struct {
 } cardet_settings_t;
 
 typedef struct {
-    unsigned int argmax;
+    uint16_t argmax;
     float max;
     float threshold;
     float noise;

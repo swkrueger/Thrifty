@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "card_reader.h"
 #include "lib/base64.h"
@@ -38,7 +39,7 @@ int card_reader_next(card_reader_t* state) {
         read = fscanf(state->file, "#%*[^\n]%c", &c);
     } while (read && !feof(state->file));
     read = fscanf(state->file,
-                      " %ld.%ld %ld ",
+                      " %ld.%ld %" PRId64 " ",
                       &output->timestamp.tv_sec,
                       &output->timestamp.tv_usec,
                       &output->index);
@@ -67,7 +68,7 @@ int card_reader_next(card_reader_t* state) {
     // fgets will terminate string
     unsigned long num = Base64decode((char*)output->raw_samples, state->base64);
     if (num != 2*state->settings.block_size) {
-        fprintf(stderr, "card_reader: block length is %ld, expected %ld\n",
+        fprintf(stderr, "card_reader: block length is %ld, expected %zu\n",
                 num,
                 2*state->settings.block_size);
         return -6;

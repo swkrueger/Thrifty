@@ -140,4 +140,10 @@ SET_TARGET_PROPERTIES(fastcard-bin
   PROPERTIES OUTPUT_NAME fastcard)
 
 # add install targets
-install (TARGETS fastcard DESTINATION bin)
+install (TARGETS fastcard-bin
+         DESTINATION bin)
+
+install (TARGETS fastcard
+                 fastcard_modules
+                 Base64Functions  # FIXME
+         DESTINATION lib)
