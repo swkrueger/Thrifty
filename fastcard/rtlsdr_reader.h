@@ -15,7 +15,7 @@ extern "C"
 typedef struct {
     uint32_t frequency;
     uint32_t sample_rate;
-    uint8_t gain;
+    uint16_t gain;
     uint8_t dev_index;
 } rtlsdr_settings_t;
 

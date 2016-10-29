@@ -16,14 +16,16 @@
  **/
 
 #include <signal.h>
-#include <argp.h>
 #include <inttypes.h>
+#include <string.h>
 
 #include "configuration.h"
 #include "lib/base64.h"
 
 #include "fastcard.h"
 #include "fargs.h"
+
+#include <argp.h>  // this should be last
 
 const char *argp_program_version = "fastcard " VERSION_STRING;
 static const char doc[] = "FastCarD: Fast Carrier Detection\n\n"
