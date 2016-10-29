@@ -29,6 +29,9 @@ void reader_cancel(reader_t* reader) {
 }
 
 void reader_free(reader_t* reader) {
+    if (reader == NULL) {
+        return;
+    }
     if (reader->free) {
         reader->free(reader->context);
     }

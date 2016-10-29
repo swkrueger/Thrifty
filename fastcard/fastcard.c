@@ -81,6 +81,9 @@ fastcard_t* fastcard_new(fargs_t* args) {
             fc->reader = raw_reader_new(reader_settings, in);
         }
     }
+    if (fc->reader == NULL) {
+        goto fail;
+    }
     fc->samples_to_fft = fft_new(args->block_len, true);
     fc->data.samples = fft_get_input(fc->samples_to_fft);
     fc->data.fft = fft_get_output(fc->samples_to_fft);
