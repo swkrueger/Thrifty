@@ -2,7 +2,7 @@
 Description=Detect TDOA transmissions
 
 [Service]
-ExecStart=/home/pi/thrifty/rpi/detect.sh
+ExecStart=/home/pi/thrifty/rpi/fastdet.sh
 User=pi
 Group=pi
 RestartSec=120
