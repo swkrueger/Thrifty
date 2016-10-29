@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 """
 Calculate the root mean square value for blocks of data.
 
@@ -30,7 +32,7 @@ def _main():
     blocks = block_reader(args.input, config.block_size, config.block_history)
     rmss = []
     for _, _, block in blocks:
-        rms = np.sqrt(np.sum(block * block.conj())).real
+        rms = np.sqrt(np.sum(block * block.conj)).real
         rmss.append(rms)
         if len(rmss) == args.integrate:
             print(np.mean(rmss))
