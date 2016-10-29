@@ -11,7 +11,7 @@
 #define DEFAULT_CARRIER_FREQ_MAX    -1
 #define DEFAULT_SKIP                1
 #define DEFAULT_INPUT_FILE          "-"
-#define DEFAULT_OUTPUT_FILE         NULL
+#define DEFAULT_WISDOM_FILE         NULL
 
 #define DEFAULT_SDR_FREQ            433830000
 #define DEFAULT_SDR_SAMPLE_RATE     2400000
@@ -19,7 +19,7 @@
 #define DEFAULT_SDR_INDEX           0
 
 static char* default_input_file = DEFAULT_INPUT_FILE;
-static char* default_output_file = DEFAULT_OUTPUT_FILE;
+static char* default_wisdom_file = DEFAULT_WISDOM_FILE;
 
 
 #define ARGP_KEY_CARD 0x01
@@ -35,6 +35,9 @@ const fargs_option_t fargs_options[] = {
         1},
     {"card", ARGP_KEY_CARD, 0, 0,
         "Input is a .card file instead of binary data", 1},
+    {"wisdom-file", 'm', "<FILE>", 0,
+        "Wisfom file to use for FFT calculation"
+        "\n[default: don't use wisdom file]", 1},
 
     // Blocks
     {0, 0, 0, 0, "Block settings:", 2},
@@ -89,7 +92,7 @@ fargs_t* fargs_new() {
     fargs->skip = DEFAULT_SKIP;
     
     fargs->input_file = default_input_file;
-    fargs->output_file = default_output_file;
+    fargs->wisdom_file = default_wisdom_file;
     fargs->input_card = false;
 
     fargs->sdr_freq = DEFAULT_SDR_FREQ;
@@ -111,6 +114,7 @@ int fargs_parse_opt(fargs_t *fargs,
         case ARGP_KEY_CARD:
             fargs->input_card = true;
         case 'i': fargs->input_file = arg; break;
+        case 'm': fargs->wisdom_file = arg; break;
         case 'w':
             if (!parse_carrier_str(arg,
                                    &fargs->carrier_freq_min,

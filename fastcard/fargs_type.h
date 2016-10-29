@@ -22,7 +22,7 @@ typedef struct {
     unsigned skip;
     
     char *input_file;
-    char *output_file;
+    char *wisdom_file;
     bool input_card;
 
     uint32_t sdr_freq;

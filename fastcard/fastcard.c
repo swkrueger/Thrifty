@@ -29,6 +29,13 @@ fastcard_t* fastcard_new(fargs_t* args) {
         }
     }
 
+    if (args->wisdom_file != NULL && strlen(args->wisdom_file) > 0) {
+        int r = fftwf_import_wisdom_from_filename(args->wisdom_file);
+        if (r == 0) {
+            fprintf(stderr, "failed to import wisdom file\n");
+        }
+    }
+
     fastcard_t* fc = malloc(sizeof(fastcard_t));
     if (fc == NULL) {
         return NULL;
@@ -124,6 +131,14 @@ int fastcard_start(fastcard_t* fc) {
 
 static void fastcard_stop(fastcard_t* fc) {
     reader_stop(fc->reader);
+
+    // TODO: move this somewhere else
+    if (fc->args->wisdom_file != NULL && strlen(fc->args->wisdom_file) > 0) {
+        int r = fftwf_export_wisdom_to_filename(fc->args->wisdom_file);
+        if (r == 0) {
+            fprintf(stderr, "failed to export wisdom file\n");
+        }
+    }
 }
 
 int fastcard_next(fastcard_t* fc, const fastcard_data_t ** data) {
