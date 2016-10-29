@@ -24,18 +24,17 @@ static char* default_output_file = DEFAULT_OUTPUT_FILE;
 
 #define ARGP_KEY_CARD 0x01
 
-const struct argp_option fargs_options[] = {
+// note: remember to update FARGS_NUM_OPTIONS
+// this argp stuff is a mess
+const fargs_option_t fargs_options[] = {
     // I/O
     {0, 0, 0, 0, "I/O settings:", 1},
-    // TODO: --card (input is a card file)
     {"input",  'i', "<FILE>", 0,
         "Input file with samples "
-        "('-' for stdin, 'rtlsdr' for librtlsdr)\n[default: stdin]",
+        "\n('-' for stdin, 'rtlsdr' for librtlsdr)\n[default: stdin]",
         1},
     {"card", ARGP_KEY_CARD, 0, 0,
         "Input is a .card file instead of binary data", 1},
-    {"output", 'o', "<FILE>", 0,
-        "Output card file ('-' for stdout)\n[default: no output]", 1},
 
     // Blocks
     {0, 0, 0, 0, "Block settings:", 2},
@@ -103,42 +102,46 @@ fargs_t* fargs_new() {
     return fargs;
 }
 
-error_t fargs_parse_opt(fargs_t *fargs,
-                        int key,
-                        char *arg,
-                        struct argp_state *state) {
+int fargs_parse_opt(fargs_t *fargs,
+                    int key,
+                    char *arg) {
     char* endptr;
 
     switch (key) {
         case ARGP_KEY_CARD:
             fargs->input_card = true;
         case 'i': fargs->input_file = arg; break;
-        case 'o': fargs->output_file = arg; break;
         case 'w':
             if (!parse_carrier_str(arg,
                                    &fargs->carrier_freq_min,
                                    &fargs->carrier_freq_max)) {
-                argp_usage(state);
+                return FARGS_INVALID_VALUE;
             }
             break;
         case 't':
             if (!parse_theshold_str(arg,
                                     &fargs->threshold_const,
                                     &fargs->threshold_snr)) {
-                argp_usage(state);   
+                return FARGS_INVALID_VALUE;
             }
             break;
         case 'b':
             fargs->block_len = strtoul(arg, &endptr, 10);
-            if (endptr == NULL || fargs->block_len < 1) argp_usage(state);
+            if (endptr == NULL || fargs->block_len < 1) {
+                return FARGS_INVALID_VALUE;
+            }
             break;
         case 'h':
             fargs->history_len = strtoul(arg, &endptr, 10);
-            if (endptr == NULL || fargs->history_len < 1) argp_usage(state);
+            if (endptr == NULL || fargs->history_len < 1) {
+                return FARGS_INVALID_VALUE;
+            }
             break;
         case 'k':
             fargs->skip = strtoul(arg, &endptr, 10);
-            if (endptr == NULL || fargs->history_len < 1) argp_usage(state);
+            if (endptr == NULL || fargs->history_len < 1) {
+                return FARGS_INVALID_VALUE;
+            }
             break;
         case 'q':
             fargs->silent = true;
@@ -154,47 +157,13 @@ error_t fargs_parse_opt(fargs_t *fargs,
             break;
         case 'd':
             fargs->sdr_dev_index = strtoul(arg, &endptr, 10);
-            if (endptr == NULL || fargs->block_len < 1) argp_usage(state);
-            break;
-        // We don't take any arguments
-        case ARGP_KEY_ARG: argp_usage(state); break;
-        default:
-            return ARGP_ERR_UNKNOWN;
-    }
-    return 0;
-}
-
-int fargs_open_streams(fargs_t *fa, FILE** in, FILE** out) {
-    if (fa->history_len > fa->block_len) {
-        fprintf(stderr, "History length cannot be larger than block length.\n");
-        return -1;
-    }
-
-    if (strlen(fa->input_file) == 0 || strcmp(fa->input_file, "-") == 0) {
-        *in = stdin;
-    } else if (strcmp(fa->input_file, "rtlsdr") == 0) {
-        *in = NULL;
-    } else {
-        *in = fopen(fa->input_file, "rb");
-        if (*in == NULL) {
-            perror("Failed to open input file");
-            return -1;
-        }
-    }
-
-    *out = NULL;
-    if (fa->output_file != NULL) {
-        if (strlen(fa->output_file) == 0 || strcmp(fa->output_file, "-") == 0) {
-            *out = stdout;
-        } else {
-            *out = fopen(fa->output_file, "w");
-            if (*out == NULL) {
-                perror("Failed to open output file");
-                return -1;
+            if (endptr == NULL || fargs->block_len < 1) {
+                return FARGS_INVALID_VALUE;
             }
-        }
+            break;
+        default:
+            return FARGS_UNKNOWN;
     }
-
     return 0;
 }
 
@@ -211,7 +180,7 @@ void fargs_print_summary(fargs_t *fa, FILE* out, bool sdr) {
                 "tuner:\n"
                 "  center freq = %.06f MHz\n"
                 "  sample rate = %.06f Msps\n"
-                "  gain = %.02f dB\n",
+                "  gain = %.02f dB\n\n",
                 fa->sdr_freq / 1e6,
                 fa->sdr_sample_rate / 1e6,
                 fa->sdr_gain/10.0);

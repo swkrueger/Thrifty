@@ -43,7 +43,7 @@ typedef struct {
     fargs_t* args;
 } fastcard_t;
 
-fastcard_t* fastcard_new(fargs_t* args, FILE* in);
+fastcard_t* fastcard_new(fargs_t* args);
 void fastcard_free(fastcard_t* fc);
 int fastcard_start(fastcard_t* fc);
 int fastcard_next(fastcard_t* fc, const fastcard_data_t ** data);

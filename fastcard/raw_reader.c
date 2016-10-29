@@ -33,8 +33,9 @@ int raw_reader_next(raw_reader_t* state) {
     if (read != new_len) {
         if (!feof(state->file)) {
             perror("Short read");
+            return -1;
         }
-        return -1;
+        return 1;
     }
 
     // Capture metadata

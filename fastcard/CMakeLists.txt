@@ -25,9 +25,8 @@ enable_language(C)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 # show all errors
-# -fgnu89-inline: workaround for linking to argp
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -fgnu89-inline")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
 # the version number
 set (FASTCARD_VERSION_MAJOR 0)
@@ -129,9 +128,10 @@ add_library(fastcard_modules
             circbuf.c)
 
 add_library(fastcard
-            fastcard.c)
+            fastcard.c
+            fargs.c)  # TODO: move 'fargs.c' to "fastcard-bin" target
 
-add_executable(fastcard-bin fastcard_cli.c fargs.c)
+add_executable(fastcard-bin fastcard_cli.c)
 target_link_libraries (fastcard_modules ${EXTRA_LIBS})
 target_link_libraries (fastcard fastcard_modules)
 target_link_libraries (fastcard-bin fastcard)

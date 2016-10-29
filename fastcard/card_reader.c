@@ -44,7 +44,7 @@ int card_reader_next(card_reader_t* state) {
                       &output->index);
     if (read != 3) {
         if (feof(state->file)) {
-            return -1;
+            return 1;
         }
         fprintf(stderr, "card_reader: failed to read metadata\n");
         return -2;

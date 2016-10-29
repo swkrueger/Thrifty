@@ -10,7 +10,25 @@
 #include "fastcard.h"
 
 
-fastcard_t* fastcard_new(fargs_t* args, FILE* in) {
+fastcard_t* fastcard_new(fargs_t* args) {
+    if (args->history_len > args->block_len) {
+        fprintf(stderr, "History length cannot be larger than block length.\n");
+        return NULL;
+    }
+
+    FILE* in;
+    if (strlen(args->input_file) == 0 || strcmp(args->input_file, "-") == 0) {
+        in = stdin;
+    } else if (strcmp(args->input_file, "rtlsdr") == 0) {
+        in = NULL;
+    } else {
+        in = fopen(args->input_file, "rb");
+        if (in == NULL) {
+            perror("failed to open input file");
+            return NULL;
+        }
+    }
+
     fastcard_t* fc = malloc(sizeof(fastcard_t));
     if (fc == NULL) {
         return NULL;
@@ -23,6 +41,7 @@ fastcard_t* fastcard_new(fargs_t* args, FILE* in) {
     fc->reader = NULL;
     fc->samples_to_fft = NULL;
     fc->data.fft_power = NULL;
+    fc->keep_running = true;
 
     // init stuff
     rawconv_init(&fc->rawconv);
@@ -88,6 +107,9 @@ fail:
 }
 
 void fastcard_free(fastcard_t* fc) {
+    if (fc->in && fc->in != stdin) {
+        fclose(fc->in);
+    }
     reader_block_free(fc->data.block);
     reader_free(fc->reader);
     fft_free(fc->samples_to_fft);
@@ -97,7 +119,6 @@ void fastcard_free(fastcard_t* fc) {
 
 int fastcard_start(fastcard_t* fc) {
     reader_start(fc->reader);
-    fc->keep_running = true;
     return 0;
 }
 
@@ -108,13 +129,13 @@ static void fastcard_stop(fastcard_t* fc) {
 int fastcard_next(fastcard_t* fc, const fastcard_data_t ** data) {
     if (!fc->keep_running) {
         fastcard_stop(fc);
-        return -1;
+        return 1;
     }
 
     int ret = reader_next(fc->reader);
 
     if (ret != 0) {
-        if (ret != -1) {
+        if (ret != 1) {
             fprintf(stderr, "reader_next() failed\n");
         }
         fastcard_stop(fc);

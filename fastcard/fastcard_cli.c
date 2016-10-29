@@ -32,36 +32,73 @@ static const char doc[] = "FastCarD: Fast Carrier Detection\n\n"
 
 fargs_t* args;
 fastcard_t* fastcard = NULL;
+char* output_file = NULL;
 
-
-/* Parse a single option. */
 static error_t parse_opt (int key, char *arg, struct argp_state *state) {
-    return fargs_parse_opt(args, key, arg, state);
-}
+    if (key == 'o') {
+        output_file = arg;
+        return 0;
+    } else if (key == ARGP_KEY_ARG) {
+        // We don't take any arguments
+        argp_usage(state);
+    }
 
-static struct argp argp = {fargs_options, parse_opt, NULL,
-                           doc, NULL, NULL, NULL};
+    int result = fargs_parse_opt(args, key, arg);
+    if (result == FARGS_UNKNOWN) {
+        return ARGP_ERR_UNKNOWN;
+    } else if (result == FARGS_INVALID_VALUE) {
+        argp_usage(state);
+    }
+
+    return 0;
+}
 
 void signal_handler(int signo) {
     (void)signo;  // unused
     fastcard_cancel(fastcard);
 }
 
+static struct argp_option extra_options[] = {
+    {"output", 'o', "<FILE>", 0,
+        "Output card file ('-' for stdout)\n[default: no output]", 1}
+};
+#define NUM_EXTRA_OPTIONS 1
+
+
 int main(int argc, char **argv) {
+    struct argp_option options[FARGS_NUM_OPTIONS + NUM_EXTRA_OPTIONS];
+    memcpy(options,
+           extra_options,
+           sizeof(struct argp_option)*NUM_EXTRA_OPTIONS);
+    memcpy(options + NUM_EXTRA_OPTIONS,
+           fargs_options,
+           sizeof(struct argp_option)*FARGS_NUM_OPTIONS);
+    struct argp argp = {options, parse_opt, NULL,
+                        doc, NULL, NULL, NULL};
+
     //// Set the stage
     args = fargs_new();
     argp_parse(&argp, argc, argv, 0, 0, 0);
 
     // variables
-    FILE *in = NULL;
     FILE *out = NULL;
     FILE *info = NULL;
     char *base64 = NULL;
     int exit_code = 0;
 
     // open streams
-    exit_code = fargs_open_streams(args, &in, &out);
-    if (exit_code != 0) goto free;
+    if (output_file != NULL) {
+        if (strlen(output_file) == 0 || strcmp(output_file, "-") == 0) {
+            out = stdout;
+        } else {
+            out = fopen(output_file, "w");
+            if (out == NULL) {
+                perror("Failed to open output file");
+                return -1;
+            }
+        }
+    }
+
     if (args->silent) {
         info = NULL;
     } else if (out == stdout) {
@@ -71,7 +108,7 @@ int main(int argc, char **argv) {
     }
 
     // init stuff
-    fastcard = fastcard_new(args, in);
+    fastcard = fastcard_new(args);
     if (fastcard == NULL) {
         exit_code = -1;
         goto free;   
@@ -83,7 +120,10 @@ int main(int argc, char **argv) {
         goto free;
     }
 
-    bool sdr_input = (in == NULL);
+    bool sdr_input = false;
+    if (args->input_file) {
+        sdr_input = (strcmp(args->input_file, "rtlsdr") == 0);   
+    }
     if (info != NULL) {
         fargs_print_summary(args, info, sdr_input);
         fflush(info);
@@ -157,7 +197,7 @@ int main(int argc, char **argv) {
         fastcard_print_stats(fastcard, info);
     }
 
-    if (ret != -1) {
+    if (ret != 1) {
         // reader didn't stop gracefully
         exit_code = ret;
     }
@@ -176,9 +216,6 @@ free:
     }
     if (out != NULL) {
         fflush(out);
-    }
-    if (in != NULL && in != stdin) {
-        fclose(in);
     }
     if (out != NULL && out != stdout) {
         fclose(out);

@@ -19,6 +19,7 @@ typedef struct {
     // WARNING: keep_running is accessed by multiple threads without a mutex.
     // FIXME: potential race condition
     bool volatile sdr_running;
+    bool cancelled;
     int return_code;
 } rtlsdr_reader_t;
 
@@ -103,7 +104,7 @@ int rtlsdr_reader_next(rtlsdr_reader_t* state) {
     bool success = circbuf_get(state->circbuf,
                                (char *)(output->raw_samples + history_size),
                                2 * new_len);
-    return success ? 0 : -1;
+    return success ? 0 : (state->cancelled ? 1 : -1);
 }
 
 int rtlsdr_reader_start(rtlsdr_reader_t* state) {
@@ -130,6 +131,7 @@ int rtlsdr_reader_stop(rtlsdr_reader_t* state) {
 }
 
 void rtlsdr_reader_cancel(rtlsdr_reader_t* state) {
+    state->cancelled = true;
     circbuf_cancel(state->circbuf);
 }
 
@@ -155,6 +157,7 @@ reader_t * rtlsdr_reader_new(reader_settings_t reader_settings,
     state->circbuf = NULL;
     state->sdr_running = false;
     state->return_code = 0;
+    state->cancelled = false;
 
     uint32_t device_count = rtlsdr_get_device_count();
     if (device_count == 0) {
