@@ -333,9 +333,6 @@ float CorrDetector::estimate_noise(size_t peak_power, float signal_energy) {
 }
 
 CorrDetection CorrDetector::detect(const fastcard_data_t &carrier_det) {
-    double carrier_offset = interpolate_parabolic(
-            &carrier_det.fft_power[carrier_det.detection.argmax]);
-
     // Frequency sync: roll
     roll(shifted_fft_.data(),
          carrier_det.fft,
@@ -378,6 +375,10 @@ CorrDetection CorrDetector::detect(const fastcard_data_t &carrier_det) {
 
     float* corr_power_peak = &corr_power_.data()[peak_idx];
     double offset = detected ? interpolate_gaussian(corr_power_peak) : 0;
+
+    // Carrier interpolation
+    double carrier_offset = interpolate_parabolic(
+            &carrier_det.fft_power[carrier_det.detection.argmax]);
 
     CorrDetection det;
     det.detected = detected;
