@@ -3,7 +3,9 @@
 set -e
 
 echo "Waiting for NTP sync"
-ntp-wait
+ntp-wait -n 1 -s 2 || sudo systemctl restart ntp
+sleep 5
+ntp-wait -n 10 -s 6
 
 echo "Starting fastdet"
 cd /home/pi/detector
