@@ -642,41 +642,43 @@ int main(int argc, char **argv) {
             double soa = ((args->block_len - args->history_len) *
                           block_idx + corr.peak_idx) + corr.peak_offset;
 
-            // output toad
-            if (out.file() != NULL) {
-                out.printf("%d %ld.%06ld %" PRId64 " %.8f"
-                           " %u %.12f %f %f %u %f %f %f\n",
-                           rxid,
-                           carrier.block->timestamp.tv_sec,
-                           carrier.block->timestamp.tv_usec,
-                           carrier.block->index,
-                           soa,
-                           corr.peak_idx,
-                           corr.peak_offset,
-                           sqrt(corr.peak_power),
-                           sqrt(corr.noise_power),
-                           carrier.detection.argmax,
-                           corr.carrier_offset,
-                           sqrt(carrier.detection.max),
-                           sqrt(carrier.detection.noise)
-                           );
-            }
+            if (corr.detected) {
+                // output toad
+                if (out.file() != NULL) {
+                    out.printf("%d %ld.%06ld %" PRId64 " %.8f"
+                               " %u %.12f %f %f %u %f %f %f\n",
+                               rxid,
+                               carrier.block->timestamp.tv_sec,
+                               carrier.block->timestamp.tv_usec,
+                               carrier.block->index,
+                               soa,
+                               corr.peak_idx,
+                               corr.peak_offset,
+                               sqrt(corr.peak_power),
+                               sqrt(corr.noise_power),
+                               carrier.detection.argmax,
+                               corr.carrier_offset,
+                               sqrt(carrier.detection.max),
+                               sqrt(carrier.detection.noise)
+                               );
+                }
 
-            if (card.file() != NULL) {
-                Base64encode(base64.data(),
-                             (const char*) carrier.block->raw_samples,
-                             args->block_len * 2);
-                card.printf("%ld.%06ld %" PRId64 " %s\n",
-                            carrier.block->timestamp.tv_sec,
-                            carrier.block->timestamp.tv_usec,
-                            carrier.block->index,
-                            base64.data());
+                if (card.file() != NULL) {
+                    Base64encode(base64.data(),
+                                 (const char*) carrier.block->raw_samples,
+                                 args->block_len * 2);
+                    card.printf("%ld.%06ld %" PRId64 " %s\n",
+                                carrier.block->timestamp.tv_sec,
+                                carrier.block->timestamp.tv_usec,
+                                carrier.block->index,
+                                base64.data());
+                }
             }
-
-            float carrier_snr_db = 10 * log10(carrier.detection.max /
-                                              carrier.detection.noise);
 
             if (info.file() != NULL) {
+                float carrier_snr_db = 10 * log10(carrier.detection.max /
+                                                  carrier.detection.noise);
+
                 info.printf("block #%" PRId64 ": carrier @ %3u %+.1f = "
                             "%4.0f / %2.0f [>%2.0f] = %2.0f dB",
                             block_idx,
