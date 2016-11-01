@@ -65,6 +65,9 @@ class DetectionResult(object):
         """Deserialize detection from string read from .toad(s) file."""
         # pylint: disable=invalid-name,too-many-locals
         fields = string.split()
+ 
+        if len(fields) < 11 + with_rxid + with_txid:
+            return None
 
         # Strip RX ID and TX ID
         rxid = int(fields.pop(0)) if with_rxid else None
@@ -92,12 +95,17 @@ def _load_toads(stream, with_rxid=True, with_txid=True):
     toads = []
     if isinstance(stream, basestring):
         stream = open(stream, 'r')
-    for line in stream:
+    for i, line in enumerate(stream):
         if len(line) == 0 or line[0] == '#':
             continue
+
         detection = DetectionResult.deserialize(line,
                                                 with_rxid=with_rxid,
                                                 with_txid=with_txid)
+        if detection is None:
+            print("WARNING: skipped line #{}: "
+                  "line's formatting is invalid".format(i+1))
+            continue
         toads.append(detection)
     return toads
 

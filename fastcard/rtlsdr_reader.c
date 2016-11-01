@@ -7,9 +7,13 @@
 
 #include "rtlsdr_reader.h"
 
-#define CIRCBUF_SIZE (16 * 16384 * 32)  // 8 MiB
-#define RTLSDR_BUF_LENGTH (16 * 16384)  // 256 KiB
-#define RTLSDR_BUF_NUM (16)             // \_> * 16 = 4 MiB
+#define CIRCBUF_SIZE (16 * 16384 * 128)  // 32 MiB
+#define RTLSDR_BUF_LENGTH (16 * 16384)   // 256 KiB
+#define RTLSDR_BUF_NUM (16)              // \_> * 16 = 4 MiB
+
+// TODO: replace byte-level circbuf with a block-level circular buffer
+//       e.g. one block of data per slot instead of one byte per slot
+//       (will have less overhead and will be simpler)
 
 typedef struct {
     reader_settings_t settings;
@@ -21,6 +25,12 @@ typedef struct {
     bool volatile sdr_running;
     bool cancelled;
     int return_code;
+
+    uint8_t* wip_block;        // incomplete block of data
+    size_t wip_block_len;      // current occupancy of wip_block
+    size_t wip_block_capacity; // number of new bytes per block
+                               // (max size of wip_block)
+    uint8_t* reader_block;     // temporary buffer for reader
 } rtlsdr_reader_t;
 
 // Copied from rtlsdr/src/convenience/convenience.c
@@ -51,7 +61,40 @@ static void sdr_callback(unsigned char *buf, uint32_t len, void *ctx) {
     if (ctx) {
         rtlsdr_reader_t* state = (rtlsdr_reader_t*) ctx;
         if (!state->sdr_running) return;
-        circbuf_put(state->circbuf, (char*) buf, len);
+
+        bool have_timestamp = false;
+
+        while (len > 0) {
+            size_t count = state->wip_block_capacity - state->wip_block_len;
+            if (len < count) {
+                count = len;
+            }
+            memcpy(state->wip_block + state->wip_block_len, buf, count);
+            state->wip_block_len += count;
+            len -= count;
+            buf += count;
+
+            if (state->wip_block_len == state->wip_block_capacity) {
+                // block is full, flush it to the circular buffer
+                // with a timestamp
+
+                // get timestamp, append it to the block
+                // if len > wip_block_capacity, reuse the timestamp from
+                // the previous block
+                if (!have_timestamp) {
+                    have_timestamp = true;
+                    struct timeval *timestamp = (struct timeval*)(
+                                                state->wip_block +
+                                                state->wip_block_capacity);
+                    gettimeofday(timestamp, NULL);
+                }
+
+                circbuf_put(state->circbuf,
+                            (char*) state->wip_block,
+                            state->wip_block_capacity + sizeof(struct timeval));
+                state->wip_block_len = 0;
+            }
+        }
     }
 }
 
@@ -80,6 +123,12 @@ void rtlsdr_reader_free(rtlsdr_reader_t* state) {
     if (state->circbuf != NULL) {
         circbuf_free(state->circbuf);
     }
+    if (state->wip_block != NULL) {
+        free(state->wip_block);
+    }
+    if (state->reader_block != NULL) {
+        free(state->reader_block);
+    }
     free(state);
 }
 
@@ -87,24 +136,37 @@ int rtlsdr_reader_next(rtlsdr_reader_t* state) {
     // copy history
     block_t* output = state->settings.output;
     size_t history_size = state->settings.history_size;
-
     size_t new_len = state->settings.block_size - history_size;
+    // assert(new_len == state->wip_block_capacity)
 
     memcpy(output->raw_samples,
            output->raw_samples + new_len,
            history_size * 2);
 
-    // Capture metadata
-    // TODO: add timestamp when we receive the data, not when it is being
-    // processed.
-    output->index++;
-    gettimeofday(&output->timestamp, NULL);
+    // retrieve data and metadata in one fetch from RTL-SDR buffer
+    // (FIXME: this temporary buffer can be eliminated
+    //  with a block-level circular buffer)
 
-    // Read from RTL
     bool success = circbuf_get(state->circbuf,
-                               (char *)(output->raw_samples + history_size),
-                               2 * new_len);
-    return success ? 0 : (state->cancelled ? 1 : -1);
+                               (char *)(state->reader_block),
+                               state->wip_block_capacity
+                               + sizeof(struct timeval));
+
+    memcpy(output->raw_samples + history_size,
+           state->reader_block,
+           new_len * 2);
+
+    // Get metadata
+    memcpy(&output->timestamp,
+           state->reader_block + state->wip_block_capacity,
+           sizeof(struct timeval));
+    output->index++;
+
+    if (!success) {
+        return (state->cancelled ? 1 : -1);
+    }
+
+    return 0;
 }
 
 int rtlsdr_reader_start(rtlsdr_reader_t* state) {
@@ -158,6 +220,25 @@ reader_t * rtlsdr_reader_new(reader_settings_t reader_settings,
     state->sdr_running = false;
     state->return_code = 0;
     state->cancelled = false;
+    state->wip_block = NULL;
+    state->wip_block_len = 0;
+    state->wip_block_capacity = ((state->settings.block_size -
+                                  state->settings.history_size)
+                                 * 2);
+    state->reader_block = NULL;
+
+    // reserve extra space for timestamp metadata
+    state->wip_block = malloc(state->wip_block_capacity
+                              + sizeof(struct timeval));
+    if (state->wip_block == NULL) {
+        goto fail;
+    }
+
+    state->reader_block = malloc(state->wip_block_capacity
+                                 + sizeof(struct timeval));
+    if (state->reader_block == NULL) {
+        goto fail;
+    }
 
     uint32_t device_count = rtlsdr_get_device_count();
     if (device_count == 0) {
@@ -235,7 +316,7 @@ void rtlsdr_reader_print_histogram(reader_t* reader, FILE* output) {
     for (int i = 0; i < CIRCBUF_HISTOGRAM_LEN; ++i) sum += hist[i];
     fprintf(output, "Histogram (%%):");
     for (int i = 0; i < CIRCBUF_HISTOGRAM_LEN; ++i) {
-        fprintf(output, " %d", hist[i] * 100 / sum);
+        fprintf(output, " %.2f", hist[i] * 100.0 / sum);
     }
     fprintf(output, "\n");
     if (overflows > 0) {

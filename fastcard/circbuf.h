@@ -9,7 +9,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 
-#define CIRCBUF_HISTOGRAM_LEN 10
+#define CIRCBUF_HISTOGRAM_LEN 20
 
 typedef struct {
     char *buf;                      // the buffer
