@@ -2,10 +2,11 @@
 
 set -e
 
-echo "Waiting for NTP sync"
-ntp-wait -n 1 -s 2 || sudo systemctl restart ntp
+echo "Stop and sync NTP"
+sudo systemctl stop ntp
+sudo ntpd -gq
+# Do not start NTP while SDR is running
 sleep 5
-ntp-wait -n 10 -s 6
 
 echo "Starting fastdet"
 cd /home/pi/detector
@@ -27,4 +28,4 @@ exec fastdet \
     -i rtlsdr \
     -f ${RTL_FREQ} \
     -g ${RTL_GAIN} \
-    -o ${TOAD_FILE} ${CARD_ARG} >>capture.log
+    -o ${TOAD_FILE} ${CARD_ARG} >> fastdet.log
