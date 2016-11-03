@@ -7,7 +7,9 @@ Estimate position from TDOA values.
 from __future__ import division
 from __future__ import print_function
 
+import scipy.optimize
 import numpy as np
+import itertools
 
 from thrifty import tdoa_est
 
@@ -17,17 +19,27 @@ POSITION_INFO_DTYPE = {
     'names': ('group_id', 'timestamp', 'tx', 'dop', 'snr', 'x', 'y', 'z'),
     'formats': ('i4', 'f8', 'i4', 'f8', 'f8', 'f8', 'f8', 'f8')
 }
+# TODO: split DOP into multiple values (one per dimension)
+
+MAX_DIST = 10e3
+
+
+class EstimationError(Exception):
+    pass
 
 
 def solve_1d(tdoa_array, rx_pos):
     """Simple 1D position estimator for 2xRX."""
+    rx0 = rx_pos.keys()[0]
+    rx1 = rx_pos.keys()[1]
+
     assert len(rx_pos) == 2
-    assert len(rx_pos[0]) == 1
+    assert len(rx_pos[rx0]) == 1
     assert len(tdoa_array) == 1
 
     tdoa_pos = tdoa_array['tdoa'][0] * SPEED_OF_LIGHT
-    rx_dist = rx_pos[0] + rx_pos[1]
-    if rx_pos[0] > rx_pos[1]:
+    rx_dist = rx_pos[rx0] + rx_pos[rx1]
+    if rx_pos[rx0] > rx_pos[rx1]:
         position = (rx_dist - tdoa_pos) / 2
     else:
         position = (rx_dist + tdoa_pos) / 2
@@ -41,24 +53,100 @@ def solve_analytically(tdoa_array, rx_pos):
 
 
 def solve_numerically(tdoa_array, rx_pos):
-    # TODO
-    # use analytic solution as initial value
-    pass
+    """Solve position using the Levenberg-Marquardt minimization algorithm."""
+    # TODO: use analytic solution or previous position as initial value
+    # TODO: experiment with different algorithms
+    # TODO: use SNR or some confidence value as weight
+
+    dims = len(rx_pos[0])
+    uniq_rx = np.unique(np.concatenate([tdoa_array['rx0'], tdoa_array['rx1']]))
+    if len(uniq_rx) < dims + 1:
+        raise EstimationError("Underdetermined")
+
+    rx_coords = np.array(rx_pos.values())
+    min_bounds = np.amin(rx_coords, axis=0) - MAX_DIST
+    max_bounds = np.amax(rx_coords, axis=0) + MAX_DIST
+
+    rx0 = np.array([rx_pos[rxid] for rxid in tdoa_array['rx0']])
+    rx1 = np.array([rx_pos[rxid] for rxid in tdoa_array['rx1']])
+
+    x0 = [0.1, 0.1]
+
+    def model(pos):
+        # position relative to {rx0, rx1}
+        pos_rx0, pos_rx1 = rx0 - pos, rx1 - pos
+        # distance to {rx0, rx1}
+        dist0 = np.linalg.norm(pos_rx0, axis=1)
+        dist1 = np.linalg.norm(pos_rx1, axis=1)
+        # predicted TDOA (in m)
+        predicted_tdoa = dist0 - dist1
+
+        residuals = tdoa_array['tdoa'] * SPEED_OF_LIGHT - predicted_tdoa
+        return residuals
+
+    def jac(pos):
+        pos_rx0, pos_rx1 = rx0 - pos, rx1 - pos
+        dist0 = np.linalg.norm(pos_rx0, axis=1)
+        dist1 = np.linalg.norm(pos_rx1, axis=1)
+        return pos_rx0 / dist0[:, None] - pos_rx1 / dist1[:, None]
+
+    res = scipy.optimize.least_squares(model, x0,
+                                       jac=jac,
+                                       bounds=(min_bounds, max_bounds))
+
+    # TODO: also return residual or a measure of the quality or confidence of
+    #       the estimate
+
+    snr_mean = np.mean(tdoa_array['snr'])
+
+    return res.x, snr_mean
+
+
+def dop_matrix(pos, rx_pos, rx_pairs):
+    pos = np.array(pos)
+    rx0 = np.array([np.array(rx_pos[rxid]) for rxid, _ in rx_pairs])
+    rx1 = np.array([np.array(rx_pos[rxid]) for _, rxid in rx_pairs])
+    pos_rx0, pos_rx1 = rx0 - pos, rx1 - pos
+    dist0 = np.linalg.norm(pos_rx0, axis=1)
+    dist1 = np.linalg.norm(pos_rx1, axis=1)
+    G = pos_rx0 / dist0[:, None] - pos_rx1 / dist1[:, None]
+    H_inv = G.T.dot(G)
+    try:
+        H = np.linalg.inv(H_inv)
+    except np.linalg.LinAlgError:
+        H = None
+    return H
+
+
+def dop(pos, rx_pos, rx_pairs):
+    matrix = dop_matrix(pos, rx_pos, rx_pairs)
+    if matrix is None:
+        return -1
+    return np.sqrt(np.trace(matrix))
 
 
 def solve(tdoa_groups, rx_pos):
-    # TODO: estimate estimate confidence with SNR and DOP and return with pos
+    # TODO: estimate confidence with SNR and DOP and return with pos
     num_rx = len(rx_pos)
-    dimensions = len(rx_pos[0])
+    dimensions = len(rx_pos[rx_pos.keys()[0]])
 
     results = []
     for group_id, timestamp, tx, tdoas in tdoa_groups:
-        if num_rx == 2 and dimensions == 1:
-            coords, snr = solve_1d(tdoas, rx_pos)
-        else:
-            raise "Not implemented yet"
-        dop = 0
-        results.append((group_id, timestamp, tx, dop, snr) + coords)
+        try:
+            if num_rx == 2 and dimensions == 1:
+                coords, snr = solve_1d(tdoas, rx_pos)
+            else:
+                coords, snr = solve_numerically(tdoas, rx_pos)
+            rx_pairs = zip(tdoas['rx0'], tdoas['rx1'])
+            dop_est = dop(coords, rx_pos, rx_pairs)
+            results.append((group_id, timestamp, tx, dop_est, snr) +
+                           tuple(coords))
+            # print(tx, dop_est, snr, coords)
+        except EstimationError as e:
+            print("Failed to estimate group #{}: {}".format(group_id, e))
+
+    # TODO: apply Kalmin filter or something to average out the position
+    #       estimates (move to separate module)
 
     dtype = {
         'names': POSITION_INFO_DTYPE['names'][:5 + dimensions],
