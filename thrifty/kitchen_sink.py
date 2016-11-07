@@ -59,7 +59,7 @@ def postdetect(toad, settings,
 
     # Identify transmitters and remove duplicates
     logging.info(" * Integrate")
-    toads = integrator(toad, nominal_freqs=settings.tx_freqs)
+    toads = integrator(toad, freqmap=settings.tx_freqs)
 
     # Match detections
     logging.info(" * Match")

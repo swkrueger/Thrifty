@@ -39,17 +39,18 @@ def detect_transmitter_windows(freqs, verbose=False):
     first_bin = np.min(freqs)
     cnts = np.bincount(freqs - first_bin)
     last_bin = first_bin + len(cnts)
-    thresh = np.std(cnts) * 2
+    low_thresh = np.std(cnts) * 0.4
+    high_thresh = np.std(cnts) * 1.25
 
     peaks = []
     below_thresh = True
     above_thresh_start = None
     for i, cnt in enumerate(cnts):
-        if not below_thresh and cnt < thresh:
+        if not below_thresh and cnt < low_thresh:
             peaks.append((above_thresh_start, i))
             above_thresh_start = None
             below_thresh = True
-        if below_thresh and cnt > thresh:
+        if below_thresh and cnt > high_thresh:
             above_thresh_start = i
             below_thresh = False
     if not below_thresh:
@@ -61,7 +62,8 @@ def detect_transmitter_windows(freqs, verbose=False):
                             [last_bin]])
 
     if verbose:
-        print("Window threshold:", thresh)
+        print("Window threshold: low = {}; high = {}:"
+              .format(low_thresh, high_thresh))
         print("Freq bin counts: {} ++ {}".format(first_bin, cnts))
         print("Detected {} transmitter(s):".format(len(edges) - 1))
 
@@ -100,38 +102,30 @@ def auto_classify_transmitters(detections):
     return txids
 
 
-def classify_transmitters(detections, nominal_freqs):
+def classify_transmitters(detections, freqmap):
     """Identify transmitter IDs based on the closest nominal frequency."""
-    # nominal_freqs = [(freq, txid) for txid, freq in txfreqs.iteritems()]
-    # nominal_freqs.sort()
-    # for i in range(len(nominal_freqs)):
-    #     if nominal_freqs[i][0] > nominal_freqs[i+1][0]:
-    #         raise Exception("Frequency spacing between transmitter {} and {}"
-    #                         " too small: it should be at least {}".format(
-    #                             nominal_freqs[i][1], nominal_freqs[i+1][1],
-    #                             window_size))
     txids = []
     for detection in detections:
         freq = detection.carrier_info.bin + detection.carrier_info.offset
-        best_dfreq, best_txid = None, None
-        for txid, nominal_freq in nominal_freqs.iteritems():
-            dfreq = abs(freq - nominal_freq)
-            if best_dfreq is None or dfreq < best_dfreq:
-                best_dfreq, best_txid = dfreq, txid
-        txids.append(best_txid)
+        this_txid = -1  # unidentifier (FIXME: don't use magic number)
+        for txid, range_ in freqmap[detection.rxid].iteritems():
+            start, stop = range_
+            if freq >= start and freq <= stop:
+                this_txid = txid
+        txids.append(this_txid)
     return txids
 
 
-def identify_transmitters(detections, nominal_freqs):
+def identify_transmitters(detections, freqmap):
     """
     Identify transmitters and add TX info to detections.
     The DetectionResult object (detections) is changed in-place.
     """
 
-    if nominal_freqs is None:
+    if freqmap is None:
         txids = auto_classify_transmitters(detections)
     else:
-        txids = classify_transmitters(detections, nominal_freqs)
+        txids = classify_transmitters(detections, freqmap)
 
     for i, detection in enumerate(detections):
         detection.txid = txids[i]
@@ -145,6 +139,8 @@ def identify_duplicates(detections):
     positioning signal and also trigger a detection. It is thus necessary
     to remove those "duplicate" detections.
     It is assumed that all detections were captured by the same receiver.
+
+    The mask will exclude unidentified detections.
     """
     array = toads_data.toads_array(detections, with_ids=True)
 
@@ -156,11 +152,12 @@ def identify_duplicates(detections):
     next_ = np.roll(cur, -1)
 
     # TODO: only filter if SOA is within code_len
+    mask_unidentified = (cur['txid'] == -1)  # FIXME: magic number
     mask_prev = ((cur['block'] == prev['block'] + 1) &
                  (cur['energy'] < prev['energy']))
     mask_next = ((cur['block'] == next_['block'] - 1) &
                  (cur['energy'] < next_['energy']))
-    mask = ~(mask_prev | mask_next)
+    mask = ~(mask_prev | mask_next | mask_unidentified)
 
     reverse_idx = np.argsort(idx)
 
@@ -168,7 +165,8 @@ def identify_duplicates(detections):
 
 
 def filter_duplicates(detections):
-    """Return detections with duplicates removed, sorted by timestamp."""
+    """Return detections with duplicates and unidentified detections removed,
+    sorted by timestamp."""
     mask = identify_duplicates(detections)
     filtered = list(itertools.compress(detections, mask))
     filtered.sort(key=lambda x: x.timestamp)
@@ -188,29 +186,49 @@ def load_toad_files(toad_globs):
     return detections, filenames
 
 
-def load_txfreqs(file_):
+def load_freqmap(file_):
     if file_ is None:
         return None
     strings = parse_kvconfig(file_)
-    txfreqs = {int(txid): float(nominal_freq)
-               for txid, nominal_freq in strings.iteritems()}
-    return txfreqs
+
+    tx_ranges = {}
+    rx_offset = {}
+
+    for key, value in strings.iteritems():
+        if key[0] == '@':
+            rx_offset[int(key[1:])] = float(value)
+        else:
+            # TODO: use regex
+            start, stop = [float(x.strip()) for x in value.split('-')]
+            tx_ranges[int(key)] = (start, stop)
+            # TODO: ensure that ranges do not overlap
+
+    freq_map = {}
+    for rxid, offset in rx_offset.iteritems():
+        freq_map[rxid] = {}
+        for txid, range_ in tx_ranges.iteritems():
+            start, stop = range_
+            freq_map[rxid][txid] = (start+offset, stop+offset)
+            print(rxid, txid, freq_map[rxid][txid])
+
+    return freq_map
 
 
-def integrate(detections, nominal_freqs=None):
+def integrate(detections, freqmap=None):
     """Identify and filter."""
-    identify_transmitters(detections, nominal_freqs)
+    identify_transmitters(detections, freqmap)
     filtered = filter_duplicates(detections)
     return filtered
 
 
-def generate_toads(output, toad_globs, nominal_freqs):
+def generate_toads(output, toad_globs, freqmap):
     detections, filenames = load_toad_files(toad_globs)
     output.write("# source_files: [%s]\n" % (' '.join(filenames)))
-    filtered = integrate(detections, nominal_freqs)
+    filtered = integrate(detections, freqmap)
 
-    print("Removed {} duplicates from {} detections.".format(
-        len(detections)-len(filtered), len(detections)))
+    print("Removed {} duplicates / unidentified transmisisons "
+          "from {} detections.".format(len(detections)-len(filtered),
+                                       len(detections)))
 
     for detection in filtered:
         output.write(detection.serialize() + '\n')
@@ -226,23 +244,13 @@ def _main():
     parser.add_argument('-o', '--output', type=argparse.FileType('wb'),
                         default='data.toads',
                         help="output file [default: *.taods]")
-    parser.add_argument('-t', '--tx-frequencies', type=argparse.FileType('r'),
-                        help="nominal frequencies of transmitters in terms of"
-                             "the DFT index [default: auto-detect]")
-    # TODO: eliminate detections not within window:
-    # parser.add_argument('-w', '--window', dest='window',
-    #                     type=float, default=10,
-    #                     help="size of frequency window with center at the "
-    #                     "nominal frequency in which a transmitter's carrier "
-    #                     "frequency is to be expected, in terms of DFT "
-    #                     "indices [default: 10]")
-    # TODO: --rx-freq-correction = apply frequency corrections to RX detections
-    #                              e.g. @rx0: -4 -- can include in tx-freq.conf
-
+    parser.add_argument('-m', '--map', type=argparse.FileType('r'),
+                        help="schema for mapping DFT index to transmitter ID "
+                             "[default: auto-detect]")
     args = parser.parse_args()
 
-    txfreqs = load_txfreqs(args.tx_frequencies)
-    generate_toads(args.output, args.toad_file, txfreqs)
+    freqmap = load_freqmap(args.map)
+    generate_toads(args.output, args.toad_file, freqmap)
 
 
 if __name__ == "__main__":
