@@ -18,6 +18,7 @@ from thrifty import toads_data
 
 SPEED_OF_LIGHT = 2.997e8
 SAMPLE_RATE = 2.4e6  # FIXME
+S2M = SPEED_OF_LIGHT / SAMPLE_RATE
 
 
 def plot(soa0, residuals, discontinuities, avg_snr=None):
@@ -33,7 +34,7 @@ def plot(soa0, residuals, discontinuities, avg_snr=None):
 
     plt.figure(figsize=(11, 6))
     plt.subplot(1, 2, 1)
-    plt.plot(soa0, residuals, '.-')
+    plt.plot(soa0, residuals * S2M, '.-')
     plt.title("Residuals")
     plt.xlabel("RX sample")
     plt.ylabel("Residual (samples)")

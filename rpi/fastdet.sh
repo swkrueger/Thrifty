@@ -10,6 +10,9 @@ sudo ntpd -gq
 #  "jumps" in the timestamps.
 sleep 5
 
+echo "Enable bias tee"
+/home/pi/rtl-sdr/build/src/rtl_biast -b 1
+
 echo "Starting fastdet"
 cd /home/pi/detector
 mkdir -p toad/ card/ log/
