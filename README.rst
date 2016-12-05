@@ -30,13 +30,19 @@ source location to the user's install location::
 
     $ make dev
 
-Thrifty requires ``fastcard`` to capture data. Refer to ``fastcard/README.md`` for
-installation instructions.
+Thrifty requires ``fastcard`` to capture data. Refer to
+`fastcard/README.md <fastcard/README.md>`_ for installation instructions.
+Furthermore, refer to `fastdet/README.md <fastdet/README.md>`_ for more
+information regarding ``fastdet``, a fast replacement for ``thrifty detect``.
+
+Refer to `rpi/installation.md <rpi/installation.md>`_ for instructions on
+configuring an Raspberry Pi 3 for use as an inexpensive TDOA receiver.
 
 Usage
 -----
-A command-line interface (CLI) is available through the ``thrifty`` command. Run
-``thrifty help`` for a summary of the modules that are available through the CLI.
+A command-line interface (CLI) is available through the ``thrifty`` command.
+Run ``thrifty help`` for a summary of the modules that are available through
+the CLI.
 
 Typical CLI workflow::
 
@@ -52,9 +58,10 @@ Typical CLI workflow::
     $ thrifty detect rx0.card -o rx1.toad
 
     $ # On server:
-    $ thrifty identify rx0.card rx1.card
+    $ thrifty identify rx0.toad rx1.toad
     $ thrifty match
     $ thrifty tdoa
+    $ thrifty pos
 
 
 Alternatively, use the Makefile::
@@ -63,6 +70,10 @@ Alternatively, use the Makefile::
     vim detector.cfg   # edit config
     thrifty capture -o cards/rxX.card
     make
+
+
+Detection on slow hardware: see `fastcard <fastcard/README.md>`_ and
+`fastdet <fastdet/README.md>`_.
 
 
 Cookbook:
@@ -92,3 +103,8 @@ For advanced use cases, use the thrifty API from Python or IPython, e.g.:
     tx0_data = data[data['txid'] == 0]
     plt.hist(tx0_data['offset'], bins=20)
     plt.show()
+
+Publications
+------------
+Publications pending.
+The publications will be listed here once they have been published.
