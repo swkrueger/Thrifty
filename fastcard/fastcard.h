@@ -46,7 +46,9 @@ typedef struct {
 fastcard_t* fastcard_new(fargs_t* args);
 void fastcard_free(fastcard_t* fc);
 int fastcard_start(fastcard_t* fc);
-int fastcard_next(fastcard_t* fc, const fastcard_data_t ** data);
+int fastcard_next(fastcard_t* fc);
+int fastcard_process(fastcard_t* fc, const fastcard_data_t ** data);
+int fastcard_process_next(fastcard_t* fc, const fastcard_data_t ** data);
 void fastcard_cancel(fastcard_t* fc);
 void fastcard_print_stats(fastcard_t* fc, FILE* out);
 

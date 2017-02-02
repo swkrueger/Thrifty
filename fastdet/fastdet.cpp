@@ -96,7 +96,7 @@ void CarrierDetector::start() {
 }
 
 bool CarrierDetector::next() {
-    int ret = fastcard_next(fastcard_, &data_);
+    int ret = fastcard_process_next(fastcard_, &data_);
     if (ret != 0) {
         if (ret != 1) {
             throw FastcardException(ret, "reader stopped unexpectedly");

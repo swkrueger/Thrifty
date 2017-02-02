@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
     const fastcard_data_t* data;
     int ret = 0;
     while (true) {
-        ret = fastcard_next(fastcard, &data);
+        ret = fastcard_process_next(fastcard, &data);
         if (ret != 0) {
             break;
         }

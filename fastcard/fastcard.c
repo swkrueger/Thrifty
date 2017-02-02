@@ -144,7 +144,8 @@ static void fastcard_stop(fastcard_t* fc) {
     }
 }
 
-int fastcard_next(fastcard_t* fc, const fastcard_data_t ** data) {
+// Read the next block of data
+int fastcard_next(fastcard_t* fc) {
     if (!fc->keep_running) {
         fastcard_stop(fc);
         return 1;
@@ -162,10 +163,19 @@ int fastcard_next(fastcard_t* fc, const fastcard_data_t ** data) {
 
     fastcard_data_t* d = &fc->data;
 
+    // TODO: move rawconv to reader
     rawconv_to_complex(&fc->rawconv,
                        d->samples,
                        fc->data.block->raw_samples,
                        fc->args->block_len);
+
+    return 0;
+}
+
+// Process the last block of data.
+// Should be called after fastcard_next.
+int fastcard_process(fastcard_t* fc, const fastcard_data_t ** data) {
+    fastcard_data_t* d = &fc->data;
     fft_perform(fc->samples_to_fft);
     volk_32fc_magnitude_squared_32f_a(d->fft_power,
                                       (lv_32fc_t*)d->fft,
@@ -176,6 +186,16 @@ int fastcard_next(fastcard_t* fc, const fastcard_data_t ** data) {
 
     *data = d;
     return 0;
+}
+
+// Convenience function for reading and processing the next block of data.
+int fastcard_process_next(fastcard_t* fc, const fastcard_data_t ** data) {
+    int ret = fastcard_next(fc);
+    if (ret != 0) {
+        return ret;
+    }
+    ret = fastcard_process(fc, data);
+    return ret;
 }
 
 void fastcard_cancel(fastcard_t* fc) {
