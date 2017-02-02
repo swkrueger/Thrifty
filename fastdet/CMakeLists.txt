@@ -68,8 +68,12 @@ find_library(FASTCARD_MODULES NAMES fastcard_modules
     ../fastcard/build  # FIXME!!!
   )
 
-add_executable(fastdet fastdet.cpp)
-target_link_libraries (fastdet
+add_library(corr_detector
+            corr_detector.cpp
+            fastcard_wrappers.cpp)
+
+# FIXME: corr_detector should be independent from fastcard
+target_link_libraries (corr_detector
                        ${FASTCARD}
                        ${FASTCARD_MODULES}
                        ${FASTCARD_BASE64}
@@ -78,6 +82,9 @@ target_link_libraries (fastdet
                        volk
                        fftw3f
                        m)
+
+add_executable(fastdet fastdet.cpp)
+target_link_libraries (fastdet corr_detector)
 
 # add install targets
 install (TARGETS fastdet DESTINATION bin)
