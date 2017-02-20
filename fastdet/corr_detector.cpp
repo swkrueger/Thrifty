@@ -51,7 +51,7 @@ CorrDetector::CorrDetector(const vector<float> &template_samples,
 void CorrDetector::set_template(const vector<float> &template_samples) {
     // calculate fft
     FFT template_fft_calc(len_, true);
-    for (size_t i = 0; i < len_; ++i) {
+    for (size_t i = 0; i < template_samples.size(); ++i) {
         template_fft_calc.input()[i].real = template_samples[i];
         template_fft_calc.input()[i].imag = 0;
     }
@@ -146,7 +146,7 @@ CorrDetection CorrDetector::detect(const complex<float> *shifted_fft,
                                       corr_len_);
 
     // Get peak
-    uint16_t peak_idx;
+    unsigned int peak_idx;
     volk_32f_index_max_16u(
             (unsigned int*)&peak_idx,
             corr_power_.data() + start_idx_,
