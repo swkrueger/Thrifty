@@ -3,6 +3,12 @@
 
 #include "fft.h"
 
+#include "configuration.h"
+
+#ifndef USE_FFTW
+#error Only FFTW is currently supported.
+#endif
+
 fft_state_t * fft_new(size_t fft_len,
                       bool forward) {
     fft_state_t* state;

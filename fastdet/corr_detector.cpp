@@ -89,10 +89,10 @@ double CorrDetector::interpolate_parabolic(float* peak_power) {
     // Apply parabolic interpolation to carrier / correlation peak.
     // Warning: we're not checking the boundaries!
 
-    float a = sqrt((double)*(peak_power-1));
-    float b = sqrt((double)*(peak_power));
-    float c = sqrt((double)*(peak_power+1));
-    float offset = (c - a) / (4*b - 2*a - 2*c);
+    double a = sqrt((double)*(peak_power-1));
+    double b = sqrt((double)*(peak_power));
+    double c = sqrt((double)*(peak_power+1));
+    double offset = (c - a) / (4*b - 2*a - 2*c);
 
     if (offset < -0.5) offset = -0.5;
     if (offset > 0.5) offset = 0.5;
@@ -124,16 +124,13 @@ float CorrDetector::estimate_noise(size_t peak_power, float signal_energy) {
     return noise_power;
 }
 
-CorrDetection CorrDetector::detect(const fastcard_data_t &carrier_det) {
-    // Frequency sync: roll
-    roll(shifted_fft_.data(),
-         carrier_det.fft,
-         len_,
-         -carrier_det.detection.argmax);
+CorrDetection CorrDetector::detect(const complex<float> *shifted_fft,
+                                   float signal_energy) {
+    // Note: shifted_fft_ should be memory-aligned
 
     // Calculate corr FFT
     volk_32fc_x2_multiply_32fc((lv_32fc_t*)corr_fft_,
-                               (const lv_32fc_t*)shifted_fft_.data(),
+                               (const lv_32fc_t*)shifted_fft,
                                (const lv_32fc_t*)template_fft_conj_.data(),
                                len_);
     // Calculate corr from FFT
@@ -151,14 +148,13 @@ CorrDetection CorrDetector::detect(const fastcard_data_t &carrier_det) {
     // Get peak
     uint16_t peak_idx;
     volk_32f_index_max_16u(
-            &peak_idx,
+            (unsigned int*)&peak_idx,
             corr_power_.data() + start_idx_,
             stop_idx_ - start_idx_);
     peak_idx += start_idx_;
     float peak_power = corr_power_.data()[peak_idx];
 
     // Calculate threshold
-    float signal_energy = carrier_det.detection.fft_sum / len_;
     float noise_power = estimate_noise(peak_power, signal_energy);
     float threshold = thresh_const_ + thresh_snr_ * noise_power;
 
@@ -168,10 +164,6 @@ CorrDetection CorrDetector::detect(const fastcard_data_t &carrier_det) {
     float* corr_power_peak = &corr_power_.data()[peak_idx];
     double offset = detected ? interpolate_gaussian(corr_power_peak) : 0;
 
-    // Carrier interpolation
-    double carrier_offset = interpolate_parabolic(
-            &carrier_det.fft_power[carrier_det.detection.argmax]);
-
     CorrDetection det;
     det.detected = detected;
     det.peak_idx = peak_idx;
@@ -179,7 +171,28 @@ CorrDetection CorrDetector::detect(const fastcard_data_t &carrier_det) {
     det.peak_power = *corr_power_peak;
     det.noise_power = noise_power;
     det.threshold = threshold;
+    return det;
+}
+
+CorrDetection CorrDetector::detect(const fastcard_data_t &carrier_det) {
+    // Frequency sync: roll
+    roll(shifted_fft_.data(),
+         carrier_det.fft,
+         len_,
+         -carrier_det.detection.argmax);
+
+    float signal_energy = carrier_det.detection.fft_sum / len_;
+
+    // FIXME: casting madness
+    CorrDetection det = detect((complex<float>*)shifted_fft_.data(), signal_energy);
+
+    // Carrier interpolation
+    // TODO: carrier interpolation should not be here!
+    double carrier_offset = interpolate_parabolic(
+            &carrier_det.fft_power[carrier_det.detection.argmax]);
+
     det.carrier_offset = carrier_offset;
+
     return det;
 }
 

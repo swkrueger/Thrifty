@@ -91,6 +91,27 @@ void CarrierDetector::print_stats(FILE* out) {
 
 
 ///
+/// FFT
+///
+FFT::FFT(size_t fft_len, bool forward) {
+    state_ = fft_new(fft_len, forward);
+    if (!state_) {
+        throw std::runtime_error("Failed to init FFT");
+    }
+}
+
+FFT::~FFT() {
+    if (state_) {
+        fft_free(state_);
+    }
+}
+
+void FFT::execute() {
+    fft_perform(state_);
+}
+
+
+///
 /// CFile
 ///
 void CFile::open(std::string filename) {

@@ -13,16 +13,11 @@ extern "C"
 
 #include <stdbool.h>
 #include <fftw3.h>
-#include "configuration.h"
 
 typedef struct {
     float real;
     float imag;
 } fcomplex;
-
-#ifndef USE_FFTW
-#error Only FFTW is currently supported.
-#endif
 
 typedef struct {
     fftwf_plan plan;

@@ -1,6 +1,7 @@
 #ifndef CORR_DETECTOR_H
 #define CORR_DETECTOR_H
 
+#include <complex>
 #include <vector>
 #include <stddef.h>
 #include <stdint.h>
@@ -27,13 +28,17 @@ class CorrDetector {
                  size_t history_len,
                  float corr_thresh_const,
                  float corr_thresh_snr);
+    CorrDetection detect(const std::complex<float> *shifted_fft_,
+                         float signal_energy);
     CorrDetection detect(const fastcard_data_t &carrier_det);
+
+    // Utility functions
+    static double interpolate_parabolic(float* peak_power);
+    static double interpolate_gaussian(float* peak_power);
 
   protected:
     void set_template(const std::vector<float> &template_samples);
     void set_window(size_t block_len, size_t history_len, size_t template_len);
-    double interpolate_parabolic(float* peak_power);
-    double interpolate_gaussian(float* peak_power);
     float estimate_noise(size_t peak_mag, float signal_energy);
 
   private:

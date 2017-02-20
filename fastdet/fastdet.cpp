@@ -15,6 +15,7 @@
 #include "corr_detector.h"
 #include "parse.h"
 #include "lib/base64.h"
+#include "configuration.h"
 
 using namespace std;
 
@@ -107,8 +108,8 @@ int main(int argc, char **argv) {
     argp_parse(&argp, argc, argv, 0, 0, 0);
 
     try {
-        CFile out = CFile(output_file);
-        CFile card = CFile(card_output_file);
+        CFile out(output_file);
+        CFile card(card_output_file);
         CFile info;
         if (!args->silent) {
             info.open((out.file() == stdout) ? stderr : stdout);

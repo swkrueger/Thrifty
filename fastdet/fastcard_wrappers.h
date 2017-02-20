@@ -81,15 +81,9 @@ class AlignedArray {
 // Thin wrapper around fastcard fft
 class FFT {
   public:
-    FFT(size_t fft_len, bool forward) {
-        state_ = fft_new(fft_len, forward);
-        if (!state_) {
-            throw std::runtime_error("Failed to init FFT");
-        }
-    }
-
-    ~FFT() { if (state_) { fft_free(state_); } }
-    void execute() { fft_perform(state_); }
+    FFT(size_t fft_len, bool forward);
+    ~FFT();
+    void execute();
     fcomplex* input() { return state_->input; }
     fcomplex* output() { return state_->output; }
 
@@ -103,6 +97,7 @@ class CFile {
     CFile() : file_(NULL) {};
     CFile(std::string filename) : file_(NULL) { open(filename); };
     CFile(FILE* file) : file_(file) {};
+    CFile(CFile&& other) : file_(other.file_) { other.file_ = NULL; }
     ~CFile() { close(); }
     void open(std::string filename);
     void open(FILE* file) { close(); file_ = file; };
@@ -110,7 +105,12 @@ class CFile {
     void close();
     void printf(const char* format, ...);
     FILE* file() { return file_; };
+
+    // non-copyconstructible
+    CFile(const CFile&) = delete;
+    CFile& operator=(const CFile&) = delete;
   private:
+    // TODO: use unique_ptr with deleter
     FILE* file_;
 };
 

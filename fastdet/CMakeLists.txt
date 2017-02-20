@@ -88,3 +88,5 @@ target_link_libraries (fastdet corr_detector)
 
 # add install targets
 install (TARGETS fastdet DESTINATION bin)
+
+install (TARGETS corr_detector DESTINATION lib)
