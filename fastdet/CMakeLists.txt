@@ -9,84 +9,97 @@ project (fastdet)
 enable_language(CXX)
 
 # show all errors
-# -fgnu89-inline: workaround for linking to argp
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+add_definitions(-Wall)
+add_definitions(-Wextra)
+add_definitions(-Wno-unused-parameter)
+add_definitions(-Wno-unused)
+add_definitions(-Wsign-compare)
+
+# use c++11
+add_definitions(-std=c++11)
 
 # the version number
-set (FASTDET_VERSION_MAJOR 0)
-set (FASTDET_VERSION_MINOR 10)
-
-# use ++11
-add_definitions(-std=c++11)
+set(VERSION_INFO_MAJOR_VERSION 0)
+set(VERSION_INFO_MINOR_VERSION 10)
 
 # select the release build type by default to get optimization flags
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
     message(STATUS "Build type not specified: defaulting to release.")
 endif()
+set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "")
 
-# add volk dependency
-option (USE_VOLK
-    "Use vector optimized library of kernels (VOLK)" ON)
-if (USE_VOLK)
-    set (EXTRA_LIBS ${EXTRA_LIBS} volk)
-endif (USE_VOLK)
+# find dependencies
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
+find_package(PkgConfig)
+find_package(Fastcard)
+find_package(Volk)
+
+if(NOT FASTCARD_FOUND)
+    message(FATAL_ERROR "Fastcard required to compile fastdet")
+endif()
+
+if(NOT VOLK_FOUND)
+    message(FATAL_ERROR "volk required to compile fastdet")
+endif()
+
+include_directories(
+    ${FASTCARD_INCLUDE_DIRS}
+    ${VOLK_INCLUDE_DIRS}
+)
 
 # configure a header file to pass some of the CMake settings to the source code
 configure_file (
   "${PROJECT_SOURCE_DIR}/configuration.h.in"
   "${PROJECT_BINARY_DIR}/configuration.h"
-  )
+)
 
 # add the binary tree to the search path for include files so that we will find
 # configuration.h
 include_directories("${PROJECT_BINARY_DIR}")
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../fastcard/cmake/Modules)
-find_package(Threads)
-find_package(LibRTLSDR)
-include_directories(${LIBRTLSDR_INCLUDE_DIRS})
+# create PkgConfig file
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/fastdet.pc.in
+    ${CMAKE_CURRENT_BINARY_DIR}/fastdet.pc
+@ONLY)
 
-include_directories("../fastcard")
-find_library(FASTCARD NAMES fastcard
-    PATHS
-    /usr/lib
-    /usr/local/lib
-    ../fastcard/build  # FIXME!!!
-  )
-find_library(FASTCARD_BASE64 NAMES Base64Functions
-    PATHS
-    /usr/lib
-    /usr/local/lib
-    ../fastcard/build  # FIXME!!!
-  )
-find_library(FASTCARD_MODULES NAMES fastcard_modules
-    PATHS
-    /usr/lib
-    /usr/local/lib
-    ../fastcard/build  # FIXME!!!
-  )
+# create uninstall target
+configure_file(
+    ${CMAKE_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
+@ONLY)
 
-add_library(corr_detector
+add_custom_target(uninstall
+    ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
+)
+
+# add targets
+add_library(fastdet
+            SHARED
             corr_detector.cpp
             fastcard_wrappers.cpp)
 
 # FIXME: corr_detector should be independent from fastcard
-target_link_libraries (corr_detector
-                       ${FASTCARD}
-                       ${FASTCARD_MODULES}
-                       ${FASTCARD_BASE64}
-                       ${CMAKE_THREAD_LIBS_INIT}
-                       ${LIBRTLSDR_LIBRARIES}
-                       volk
-                       fftw3f
+target_link_libraries (fastdet
+                       ${FASTCARD_LIBRARIES}
+                       ${VOLK_LIBRARIES}
                        m)
 
-add_executable(fastdet fastdet.cpp)
-target_link_libraries (fastdet corr_detector)
+add_executable(fastdet_bin fastdet.cpp)
+target_link_libraries (fastdet_bin fastdet)
+
+set_target_properties(fastdet_bin
+  PROPERTIES OUTPUT_NAME fastdet)
 
 # add install targets
-install (TARGETS fastdet DESTINATION bin)
+install (TARGETS fastdet_bin DESTINATION bin)
 
-install (TARGETS corr_detector DESTINATION lib)
+install (TARGETS fastdet DESTINATION lib)
+
+install (FILES corr_detector.h
+               fastcard_wrappers.h
+         DESTINATION include/fastdet)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/fastdet.pc
+         DESTINATION lib/pkgconfig)

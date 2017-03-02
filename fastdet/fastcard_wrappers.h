@@ -8,9 +8,9 @@
 #include <volk/volk.h>
 
 #define USE_FFTW
-#include "fastcard.h"
-#include "fargs.h"
-#include "fft.h"
+#include <fastcard/fastcard.h>
+#include <fastcard/fargs.h>
+#include <fastcard/fft.h>
 
 
 class FastcardException: public std::exception {

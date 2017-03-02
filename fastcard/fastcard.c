@@ -3,11 +3,11 @@
 
 #include <volk/volk.h>
 
+#include "fastcard.h"
+
 #include "raw_reader.h"
 #include "card_reader.h"
 #include "rtlsdr_reader.h"
-
-#include "fastcard.h"
 
 
 fastcard_t* fastcard_new(fargs_t* args) {

@@ -1,0 +1,12 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: fastcard
+Description: Fast carrier detection using RTL-SDR
+Version: @VERSION_INFO_MAJOR_VERSION@.@VERSION_INFO_MINOR_VERSION@
+Cflags: -I${includedir}/ @FASTCARD_PC_CFLAGS@
+Requires.private: librtlsdr volk fftw3f
+Libs: -L${libdir} -lfastcard
+Libs.private: @FASTCARD_PC_LIBS@

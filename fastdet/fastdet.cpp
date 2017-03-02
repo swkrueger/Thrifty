@@ -12,9 +12,10 @@
 
 #include <argp.h>
 
+#include <fastcard/parse.h>
+#include <fastcard/base64.h>
+
 #include "corr_detector.h"
-#include "parse.h"
-#include "lib/base64.h"
 #include "configuration.h"
 
 using namespace std;
