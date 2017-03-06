@@ -22,6 +22,9 @@ add_definitions(-Wno-unused-parameter)
 add_definitions(-Wno-unused)
 add_definitions(-Wsign-compare)
 
+# support for enabling switching state of bias tee programmatically
+add_definitions(-DLIBRTLSDR_BIAS_TEE_SUPPORT)
+
 # use C99
 add_definitions(-std=c99)
 
@@ -146,6 +149,7 @@ install (FILES cardet.h
                fft.h
                rawconv.h
                reader.h
+               rtlsdr_reader.h
                parse.h
                lib/base64.h
          DESTINATION include/fastcard)

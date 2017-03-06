@@ -37,6 +37,9 @@ class CarrierDetector {
     void cancel();
     void print_stats(FILE* out);
 
+    // Seriously, don't use this
+    fastcard_t* get() { return fastcard_; }
+
   private:
     fastcard_t* fastcard_;
     const fastcard_data_t* data_;

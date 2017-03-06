@@ -24,6 +24,10 @@ reader_t * rtlsdr_reader_new(reader_settings_t reader_settings,
 
 void rtlsdr_reader_print_histogram(reader_t* reader, FILE* output);
 
+#ifdef LIBRTLSDR_BIAS_TEE_SUPPORT
+int rtlsdr_reader_set_bias_tee(reader_t* reader, bool on);
+#endif /* LIBRTLSDR_BIAS_TEE_SUPPORT */
+
 #ifdef __cplusplus
 }
 #endif

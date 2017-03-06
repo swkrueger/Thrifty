@@ -323,3 +323,10 @@ void rtlsdr_reader_print_histogram(reader_t* reader, FILE* output) {
         fprintf(output, "Number of buffer overflows: %u\n", overflows);
     }
 }
+
+#ifdef LIBRTLSDR_BIAS_TEE_SUPPORT
+int rtlsdr_reader_set_bias_tee(reader_t* reader, bool on) {
+    rtlsdr_reader_t *state = (rtlsdr_reader_t*) reader->context;
+    return rtlsdr_set_bias_tee(state->sdr, on);
+}
+#endif /* LIBRTLSDR_BIAS_TEE_SUPPORT */
