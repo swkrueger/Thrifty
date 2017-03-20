@@ -21,8 +21,8 @@ typedef struct {
     int carrier_freq_max;
     unsigned skip;
     
-    char *input_file;
-    char *wisdom_file;
+    const char *input_file;
+    const char *wisdom_file;
     bool input_card;
 
     uint32_t sdr_freq;

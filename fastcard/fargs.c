@@ -161,7 +161,7 @@ int fargs_parse_opt(fargs_t *fargs,
             break;
         case 'd':
             fargs->sdr_dev_index = strtoul(arg, &endptr, 10);
-            if (endptr == NULL || fargs->block_len < 1) {
+            if (endptr == NULL) {
                 return FARGS_INVALID_VALUE;
             }
             break;

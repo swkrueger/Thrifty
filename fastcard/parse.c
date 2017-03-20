@@ -36,7 +36,7 @@ double parse_si_float(char *s) {
     // </copy>
 }
 
-bool parse_carrier_str(char *arg,
+bool parse_carrier_str(const char *arg,
                        int *freq_min,
                        int *freq_max) {
     int r = sscanf(arg, "%d-%d", freq_min, freq_max);
@@ -51,7 +51,7 @@ bool parse_carrier_str(char *arg,
     return true;
 }
 
-bool parse_theshold_str(char *arg,
+bool parse_theshold_str(const char *arg,
                         float *constant,
                         float *snr) {
     float f;
