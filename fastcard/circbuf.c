@@ -23,24 +23,17 @@ bool circbuf_init(circbuf_t* circbuf, size_t size) {
     if (pthread_cond_init(&circbuf->can_consume, NULL) != 0) {
         goto fail;
     }
-
     circbuf->size = size;
-    circbuf->len = 0;
-    circbuf->head = 0;
-    circbuf->tail = 0;
-    circbuf->cancel = false;
-    circbuf->num_overflows = 0;
-
     circbuf->histogram = malloc(CIRCBUF_HISTOGRAM_LEN * sizeof(unsigned));
     if (circbuf->histogram == NULL) {
         goto fail;
     }
-    for (int i = 0; i < CIRCBUF_HISTOGRAM_LEN; ++i) circbuf->histogram[i] = 0;
-
     circbuf->buf = malloc(circbuf->size);
     if (circbuf->buf == NULL) {
         goto fail;
     }
+
+    circbuf_reset(circbuf);
 
     return true;
 
@@ -59,6 +52,19 @@ void circbuf_free(circbuf_t* circbuf) {
         free(circbuf->buf);
 
     free(circbuf);
+}
+
+void circbuf_reset(circbuf_t* circbuf) {
+    pthread_mutex_lock(&circbuf->mutex);
+
+    circbuf->len = 0;
+    circbuf->head = 0;
+    circbuf->tail = 0;
+    circbuf->cancel = false;
+    circbuf->num_overflows = 0;
+    for (int i = 0; i < CIRCBUF_HISTOGRAM_LEN; ++i) circbuf->histogram[i] = 0;
+
+    pthread_mutex_unlock(&circbuf->mutex);
 }
 
 bool circbuf_get(circbuf_t* circbuf, char* dest, size_t len) {
@@ -150,13 +156,28 @@ fail:
     return false;
 }
 
+void circbuf_clear(circbuf_t* circbuf) {
+    pthread_mutex_lock(&circbuf->mutex);
+    // Clear length
+    circbuf->len = 0;
+    pthread_cond_signal(&circbuf->can_produce);
+    // Clear again (producer may have written to circbuf)
+    circbuf->len = 0;
+    circbuf->head = 0;
+    circbuf->tail = 0;
+    pthread_mutex_unlock(&circbuf->mutex);
+}
+
 void circbuf_cancel(circbuf_t* circbuf) {
     if (circbuf == NULL) {
         return;
     }
 
     pthread_mutex_lock(&circbuf->mutex);
-    if (circbuf->cancel) return;
+    if (circbuf->cancel) {
+        pthread_mutex_unlock(&circbuf->mutex);
+        return;
+    }
     circbuf->cancel = true;
     pthread_cond_signal(&circbuf->can_produce);
     pthread_cond_signal(&circbuf->can_consume);

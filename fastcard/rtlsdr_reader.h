@@ -9,6 +9,7 @@ extern "C"
 #endif
 
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "reader.h"
 
@@ -27,6 +28,8 @@ void rtlsdr_reader_print_histogram(reader_t* reader, FILE* output);
 #ifdef LIBRTLSDR_BIAS_TEE_SUPPORT
 int rtlsdr_reader_set_bias_tee(reader_t* reader, bool on);
 #endif /* LIBRTLSDR_BIAS_TEE_SUPPORT */
+
+void rtlsdr_reader_set_standby(reader_t* reader, bool on);
 
 #ifdef __cplusplus
 }

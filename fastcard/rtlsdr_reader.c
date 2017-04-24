@@ -20,9 +20,10 @@ typedef struct {
     rtlsdr_dev_t *sdr;
     circbuf_t* circbuf;
     pthread_t sdr_thread;
-    // WARNING: keep_running is accessed by multiple threads without a mutex.
+    // WARNING: sdr_running and standby are accessed by multiple threads without a mutex.
     // FIXME: potential race condition
     bool volatile sdr_running;
+    bool volatile standby;
     bool cancelled;
     int return_code;
 
@@ -64,7 +65,14 @@ static void sdr_callback(unsigned char *buf, uint32_t len, void *ctx) {
 
         bool have_timestamp = false;
 
-        while (len > 0) {
+        if (state->standby) {
+            // Clear buffers
+            state->wip_block_len = 0;
+            // Do not consume anything
+            return;
+        }
+
+        while (len > 0 && !state->standby) {
             size_t count = state->wip_block_capacity - state->wip_block_len;
             if (len < count) {
                 count = len;
@@ -133,6 +141,11 @@ void rtlsdr_reader_free(rtlsdr_reader_t* state) {
 }
 
 int rtlsdr_reader_next(rtlsdr_reader_t* state) {
+    if (state->standby) {
+        // Nothing to read
+        return 0;
+    }
+
     // copy history
     block_t* output = state->settings.output;
     size_t history_size = state->settings.history_size;
@@ -170,6 +183,14 @@ int rtlsdr_reader_next(rtlsdr_reader_t* state) {
 }
 
 int rtlsdr_reader_start(rtlsdr_reader_t* state) {
+    // reset state
+    circbuf_reset(state->circbuf);
+    state->return_code = 0;
+    state->cancelled = false;
+    state->wip_block_len = 0;
+
+    // start SDR
+
     // Create RTL-SDR thread
     int r = pthread_create(&state->sdr_thread, NULL, sdr_routine, state);
     if (r != 0) {
@@ -220,6 +241,7 @@ reader_t * rtlsdr_reader_new(reader_settings_t reader_settings,
     state->sdr_running = false;
     state->return_code = 0;
     state->cancelled = false;
+    state->standby = false;
     state->wip_block = NULL;
     state->wip_block_len = 0;
     state->wip_block_capacity = ((state->settings.block_size -
@@ -316,7 +338,7 @@ void rtlsdr_reader_print_histogram(reader_t* reader, FILE* output) {
     for (int i = 0; i < CIRCBUF_HISTOGRAM_LEN; ++i) sum += hist[i];
     fprintf(output, "Histogram (%%):");
     for (int i = 0; i < CIRCBUF_HISTOGRAM_LEN; ++i) {
-        fprintf(output, " %.2f", hist[i] * 100.0 / sum);
+        fprintf(output, " %.0f", hist[i] * 100.0 / sum);
     }
     fprintf(output, "\n");
     if (overflows > 0) {
@@ -330,3 +352,11 @@ int rtlsdr_reader_set_bias_tee(reader_t* reader, bool on) {
     return rtlsdr_set_bias_tee(state->sdr, on);
 }
 #endif /* LIBRTLSDR_BIAS_TEE_SUPPORT */
+
+void rtlsdr_reader_set_standby(reader_t* reader, bool on) {
+    rtlsdr_reader_t *state = (rtlsdr_reader_t*) reader->context;
+    state->standby = on;
+    if (on) {
+        circbuf_clear(state->circbuf);
+    }
+}

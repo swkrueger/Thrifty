@@ -30,7 +30,7 @@ add_definitions(-std=c99)
 
 # set version information
 set(VERSION_INFO_MAJOR_VERSION 0)
-set(VERSION_INFO_MINOR_VERSION 10)
+set(VERSION_INFO_MINOR_VERSION 11)
 
 # select the release build type by default to get optimization flags
 if(NOT CMAKE_BUILD_TYPE)

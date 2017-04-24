@@ -128,6 +128,7 @@ void fastcard_free(fastcard_t* fc) {
 }
 
 int fastcard_start(fastcard_t* fc) {
+    fc->keep_running = true;
     reader_start(fc->reader);
     return 0;
 }

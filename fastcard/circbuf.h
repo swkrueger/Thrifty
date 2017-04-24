@@ -44,6 +44,13 @@ bool circbuf_get(circbuf_t* circbuf, char* dest, size_t len);
 /// Will increase overflow counter and wait for consumer if the buffer is full.
 bool circbuf_put(circbuf_t* circbuf, char* src, size_t len);
 
+/// Clear the circular buffer and resume the producer if it is blocked.
+void circbuf_clear(circbuf_t* circbuf);
+
+/// Reset the state of the circular buffer to where it is after construction
+/// Do not use this function when the buffer is still in use.
+void circbuf_reset(circbuf_t* circbuf);
+
 /// Return the number of overflow events that occurred.
 unsigned circbuf_overflows(circbuf_t* circbuf);
 
