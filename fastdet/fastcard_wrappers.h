@@ -112,6 +112,11 @@ class CFile {
     // non-copyconstructible
     CFile(const CFile&) = delete;
     CFile& operator=(const CFile&) = delete;
+
+    // move assignment
+    CFile& operator=(CFile&& other) {
+        close(); file_ = other.file_; other.file_ = NULL; return *this;
+    }
   private:
     // TODO: use unique_ptr with deleter
     FILE* file_;
