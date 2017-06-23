@@ -44,6 +44,9 @@ bool circbuf_get(circbuf_t* circbuf, char* dest, size_t len);
 /// Will increase overflow counter and wait for consumer if the buffer is full.
 bool circbuf_put(circbuf_t* circbuf, char* src, size_t len);
 
+/// Wait for the next circbuf_put (or circbuf_cancel) call.
+bool circbuf_wait_put(circbuf_t* circbuf);
+
 /// Clear the circular buffer and resume the producer if it is blocked.
 void circbuf_clear(circbuf_t* circbuf);
 

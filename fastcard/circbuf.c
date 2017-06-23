@@ -156,6 +156,17 @@ fail:
     return false;
 }
 
+bool circbuf_wait_put(circbuf_t* circbuf) {
+    bool ret = true;
+    pthread_mutex_lock(&circbuf->mutex);
+    pthread_cond_wait(&circbuf->can_consume, &circbuf->mutex);
+    if (circbuf->cancel) {
+        ret = false;
+    }
+    pthread_mutex_unlock(&circbuf->mutex);
+    return ret;
+}
+
 void circbuf_clear(circbuf_t* circbuf) {
     pthread_mutex_lock(&circbuf->mutex);
     // Clear length

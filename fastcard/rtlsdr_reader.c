@@ -68,7 +68,9 @@ static void sdr_callback(unsigned char *buf, uint32_t len, void *ctx) {
         if (state->standby) {
             // Clear buffers
             state->wip_block_len = 0;
-            // Do not consume anything
+            // Do not consume anything, but call circbuf_put with zero length
+            // to trigger can_consume signal.
+            circbuf_put(state->circbuf, (char*) state->wip_block, 0);
             return;
         }
 
@@ -142,7 +144,15 @@ void rtlsdr_reader_free(rtlsdr_reader_t* state) {
 
 int rtlsdr_reader_next(rtlsdr_reader_t* state) {
     if (state->standby) {
+        // Wait for next block from the SDR.
+        // Even though we do not consume the data, we want to detect when
+        // the SDR fails without "busy waiting".
+        bool success = circbuf_wait_put(state->circbuf);
+
         // Nothing to read
+        if (!success) {
+            return (state->cancelled ? 1 : -1);
+        }
         return 0;
     }
 
