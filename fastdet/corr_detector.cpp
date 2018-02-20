@@ -148,7 +148,7 @@ CorrDetection CorrDetector::detect(const complex<float> *shifted_fft,
     // Get peak
     unsigned int peak_idx;
     volk_32f_index_max_16u(
-            (unsigned int*)&peak_idx,
+            (uint16_t*)&peak_idx,
             corr_power_.data() + start_idx_,
             stop_idx_ - start_idx_);
     peak_idx += start_idx_;
