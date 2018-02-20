@@ -106,5 +106,13 @@ For advanced use cases, use the thrifty API from Python or IPython, e.g.:
 
 Publications
 ------------
-Publications pending.
-The publications will be listed here once they have been published.
+Thrifty forms part of the dissertation at https://hdl.handle.net/10394/25449. Please cite this dissertation when using Thrifty in your work:
+
+.. code-block:: bibtex
+
+    @mastersthesis{kruger2016inexpensive,
+      title={An inexpensive hyperbolic positioning system for tracking wildlife using off-the-shelf hardware},
+      author={Kr{\"u}ger, Schalk Willem},
+      year={2016},
+      school={North-West University (South Africa), Potchefstroom Campus}
+    }
