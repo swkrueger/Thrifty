@@ -204,6 +204,7 @@ int main(int argc, char **argv) {
                                sqrt(carrier.detection.max),
                                sqrt(carrier.detection.noise)
                                );
+                    out.flush();
                 }
 
                 if (card.file() != NULL) {
