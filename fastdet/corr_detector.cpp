@@ -101,7 +101,7 @@ double CorrDetector::interpolate_parabolic(float* peak_power) {
 }
 
 double CorrDetector::interpolate_gaussian(float* peak_power) {
-    // Apply parabolic interpolation to carrier / correlation peak.
+    // Apply Gaussian interpolation to carrier / correlation peak.
     // WARNING: we're not checking the boundaries!
 
     double a = log(sqrt((double)*(peak_power-1)));
