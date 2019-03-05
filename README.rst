@@ -50,11 +50,11 @@ Typical CLI workflow::
     $ vim detector.cfg   # edit config
 
     $ # On RX0:
-    $ thrifty capture -o rx0.card
+    $ thrifty capture rx0.card
     $ thrifty detect rx0.card -o rx0.toad
 
     $ # On RX1:
-    $ thrifty capture -o rx1.card
+    $ thrifty capture rx1.card
     $ thrifty detect rx0.card -o rx1.toad
 
     $ # On server:
@@ -68,7 +68,7 @@ Alternatively, use the Makefile::
 
     cd example/
     vim detector.cfg   # edit config
-    thrifty capture -o cards/rxX.card
+    thrifty capture cards/rxX.card
     make
 
 
@@ -116,3 +116,5 @@ Thrifty forms part of the dissertation at https://hdl.handle.net/10394/25449. Pl
       year={2016},
       school={North-West University (South Africa), Potchefstroom Campus}
     }
+
+Refer to https://swk.za.net/publications for contact information.
